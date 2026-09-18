@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clasificador Vial — ParaderosCore</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --brand:#007aff; --brand-dark:#005ec4;
+    --bg:#eef1f8; --card:#ffffff; --text:#1c1c1e; --text-2:#6e6e73;
+    --border:#e5e5ea; --radius-sm:10px; --radius-md:16px; --radius-lg:22px;
+    --header-h:60px; --panel-w:282px;
+    --shadow-sm:0 1px 4px rgba(0,0,0,.08); --shadow-md:0 4px 20px rgba(0,0,0,.11);
+    --c-expresa:#e2483d; --c-arterial:#f97316; --c-colectora:#eab308; --c-local:#22a55e;
+
+    /* ── Liquid glass tokens ── */
+    --glass-bg:rgba(255,255,255,.42);
+    --glass-bg-strong:rgba(255,255,255,.62);
+    --glass-bg-soft:rgba(255,255,255,.30);
+    --glass-border:rgba(255,255,255,.65);
+    --glass-border-soft:rgba(255,255,255,.4);
+    --glass-blur:blur(28px) saturate(1.9);
+    --glass-blur-soft:blur(18px) saturate(1.6);
+    --glass-shadow:0 8px 32px rgba(31,44,80,.14), 0 1px 1px rgba(255,255,255,.6) inset, 0 -1px 1px rgba(255,255,255,.3) inset;
+    --glass-shadow-sm:0 4px 16px rgba(31,44,80,.12), 0 1px 0 rgba(255,255,255,.7) inset;
+    --glass-highlight:linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,0) 45%);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+    color:var(--text);font-size:14px;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(255,122,220,.55), transparent 42%),
+      radial-gradient(circle at 85% 8%, rgba(90,150,255,.55), transparent 45%),
+      radial-gradient(circle at 25% 85%, rgba(120,225,210,.5), transparent 48%),
+      radial-gradient(circle at 90% 80%, rgba(255,196,110,.45), transparent 45%),
+      linear-gradient(135deg, #dfe7fb 0%, #eef1f8 50%, #e6f2f0 100%);
+    background-attachment:fixed;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(255,255,255,.5), transparent 30%),
+      radial-gradient(circle at 80% 70%, rgba(255,255,255,.35), transparent 35%);
+    animation:driftGlow 22s ease-in-out infinite alternate;
+  }
+  @keyframes driftGlow{
+    0%{transform:translate(0,0) scale(1)}
+    100%{transform:translate(2%,-2%) scale(1.06)}
+  }
+
+  /* ── HEADER ── */
+  #app-header{position:fixed;top:12px;left:12px;right:12px;height:var(--header-h);background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--radius-lg);box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:1100;gap:12px}
+  #app-header::before{content:'';position:absolute;inset:0;border-radius:var(--radius-lg);background:var(--glass-highlight);opacity:.5;pointer-events:none}
+  .header-left{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .breadcrumb{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);font-weight:400}
+  .breadcrumb a{color:var(--text-2);text-decoration:none;transition:.15s}
+  .breadcrumb a:hover{color:var(--brand)}
+  .breadcrumb-sep{opacity:.4;font-size:11px}
+  .logo{font-size:15px;font-weight:700;color:var(--brand);letter-spacing:-.4px;white-space:nowrap}
+  .logo span{color:var(--text)}
+  .header-divider{width:1px;height:20px;background:rgba(0,0,0,.1);margin:0 4px}
+  .header-right{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+  .btn-group{display:flex;align-items:center;gap:3px;padding:4px;background:rgba(255,255,255,.35);backdrop-filter:blur(14px) saturate(1.6);-webkit-backdrop-filter:blur(14px) saturate(1.6);border-radius:999px;border:1px solid var(--glass-border-soft);box-shadow:0 2px 8px rgba(0,0,0,.06) inset}
+
+  /* ── BOTONES ── */
+  .btn{position:relative;display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;padding:7px 13px;border-radius:999px;border:1px solid var(--glass-border-soft);background:rgba(255,255,255,.5);backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);color:var(--text);cursor:pointer;transition:.18s ease;white-space:nowrap;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,.05), 0 1px 0 rgba(255,255,255,.6) inset}
+  .btn:hover{background:rgba(255,255,255,.75);transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.08), 0 1px 0 rgba(255,255,255,.7) inset}
+  .btn.primary{background:linear-gradient(180deg, rgba(64,150,255,.95), rgba(0,110,235,.95));border-color:rgba(255,255,255,.5);color:#fff;box-shadow:0 4px 14px rgba(0,122,255,.4), 0 1px 0 rgba(255,255,255,.4) inset}
+  .btn.primary:hover{background:linear-gradient(180deg, rgba(84,165,255,1), rgba(0,120,250,1))}
+  .btn.loaded{background:rgba(200,250,220,.6);border-color:rgba(180,240,200,.7);color:#0a7a32}
+  .btn.loaded:hover{background:rgba(180,245,205,.75)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+  .btn.mode-active{background:linear-gradient(180deg, rgba(64,150,255,.95), rgba(0,110,235,.95));border-color:rgba(255,255,255,.5);color:#fff;box-shadow:0 4px 14px rgba(0,122,255,.35)}
+  /* botones dentro de grupo: sin borde propio, solo hover */
+  .btn-group .btn{border:none;background:transparent;padding:6px 11px;border-radius:999px;box-shadow:none}
+  .btn-group .btn:hover{background:rgba(255,255,255,.7);transform:none;box-shadow:none}
+  .btn-group .btn.mode-active{background:linear-gradient(180deg, rgba(64,150,255,.95), rgba(0,110,235,.95));color:#fff;box-shadow:0 2px 8px rgba(0,122,255,.35)}
+  .btn-group .btn:disabled{opacity:.35}
+  input[type=file]{display:none}
+
+  /* ── STATUS PILL ── */
+  .status-pill{font-size:11.5px;color:var(--text-2);background:rgba(255,255,255,.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--glass-border-soft);border-radius:999px;padding:5px 12px;white-space:nowrap;font-weight:500;box-shadow:0 1px 0 rgba(255,255,255,.6) inset}
+  .status-pill.ok{color:#0a7a32;background:rgba(210,250,225,.55);border-color:rgba(180,240,200,.7)}
+
+  /* ── MAPA ── */
+  #map{position:fixed;top:0;left:0;right:0;bottom:0;filter:saturate(1.08)}
+  #map.cursor-paint{cursor:crosshair}
+
+  /* ── PANEL ── */
+  #panel{position:fixed;top:84px;left:12px;width:var(--panel-w);max-height:calc(100vh - 108px);overflow-y:auto;overflow-x:hidden;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--radius-lg);box-shadow:var(--glass-shadow);z-index:900;padding:0;scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  #panel::-webkit-scrollbar{width:4px}
+  #panel::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px}
+
+  .panel-section{padding:16px 16px}
+  .panel-section+.panel-section{border-top:1px solid rgba(0,0,0,.06)}
+  .panel-section-header{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+  .panel-section-icon{width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;box-shadow:0 1px 0 rgba(255,255,255,.5) inset}
+  .panel-section-icon.blue{background:rgba(0,122,255,.16)}
+  .panel-section-icon.purple{background:rgba(150,90,255,.18)}
+  .panel-section-icon.green{background:rgba(20,180,110,.18)}
+  .panel-section-title{font-size:11.5px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.06em}
+
+  .hint{font-size:11.5px;color:var(--text-2);line-height:1.55}
+
+  /* ── BRUSH BUTTONS ── */
+  .brush-grid{display:flex;flex-direction:column;gap:4px}
+  .brush-btn{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-sm);border:1px solid transparent;background:rgba(255,255,255,.32);backdrop-filter:blur(6px);cursor:pointer;transition:.15s ease;font-size:13px;font-weight:500;color:var(--text);position:relative;overflow:hidden}
+  .brush-btn::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;border-radius:0 2px 2px 0;transition:.15s}
+  .brush-btn:hover{background:rgba(255,255,255,.6)}
+  .brush-btn.active{background:rgba(255,255,255,.75);border-color:var(--glass-border-soft);box-shadow:var(--glass-shadow-sm)}
+  .brush-btn[data-tipo="expresa"].active::before{background:var(--c-expresa)}
+  .brush-btn[data-tipo="arterial"].active::before{background:var(--c-arterial)}
+  .brush-btn[data-tipo="colectora"].active::before{background:var(--c-colectora)}
+  .brush-btn[data-tipo="local"].active::before{background:var(--c-local)}
+  .brush-btn[data-tipo="limpiar"].active::before{background:#aaa}
+  .brush-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .brush-label{flex:1;display:flex;align-items:baseline;gap:6px}
+  .brush-name{font-size:12.5px;font-weight:600}
+  .brush-range{font-size:10.5px;color:var(--text-2);font-weight:400}
+
+  /* ── BÚSQUEDA ── */
+  .search-box{display:flex;gap:6px;margin-bottom:8px}
+  .search-box input{flex:1;border:1px solid var(--glass-border-soft);border-radius:999px;padding:8px 12px;font-size:12.5px;color:var(--text);background:rgba(255,255,255,.55);backdrop-filter:blur(8px);transition:.15s;font-family:inherit}
+  .search-box input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(0,122,255,.15)}
+  .search-box input:disabled{background:rgba(255,255,255,.25);opacity:.6}
+  .search-results{max-height:155px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .search-result-row{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.35);font-size:12px;cursor:pointer;gap:6px;border:1px solid transparent;transition:.12s}
+  .search-result-row:hover{background:rgba(255,255,255,.65)}
+  .search-result-row.resaltado{background:rgba(224,247,250,.85);border-color:#06b6d4}
+  .search-result-name{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .search-result-count{font-size:11px;color:var(--text-2);flex-shrink:0;background:rgba(255,255,255,.7);border:1px solid var(--glass-border-soft);border-radius:999px;padding:1px 7px}
+  .btn-clasificar-todos{width:100%;margin-top:8px;justify-content:center;font-size:12px;padding:7px 10px;background:rgba(255,255,255,.4);border-color:var(--glass-border-soft)}
+  .btn-clasificar-todos:not(:disabled):hover{background:rgba(255,255,255,.7)}
+
+  /* ── COUNT CARDS ── */
+  .count-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+  .count-card{background:rgba(255,255,255,.35);backdrop-filter:blur(6px);border-radius:var(--radius-sm);padding:10px 12px;border-top:3px solid transparent;transition:.15s}
+  .count-card.expresa{border-top-color:var(--c-expresa)}
+  .count-card.arterial{border-top-color:var(--c-arterial)}
+  .count-card.colectora{border-top-color:var(--c-colectora)}
+  .count-card.local{border-top-color:var(--c-local)}
+  .count-card .cv{font-size:20px;font-weight:700;line-height:1}
+  .count-card .cl{font-size:10.5px;color:var(--text-2);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+  .count-card.expresa .cv{color:var(--c-expresa)}
+  .count-card.arterial .cv{color:var(--c-arterial)}
+  .count-card.colectora .cv{color:var(--c-colectora)}
+  .count-card.local .cv{color:var(--c-local)}
+  .count-total{font-size:11.5px;color:var(--text-2);margin-top:8px;padding:6px 8px;background:rgba(255,255,255,.4);border-radius:8px;text-align:center}
+
+  /* ── INSTRUCTION PILL ── */
+  #instruction{position:fixed;top:84px;left:50%;transform:translateX(-50%);background:var(--glass-bg-strong);border:1px solid var(--glass-border);border-radius:999px;box-shadow:var(--glass-shadow-sm);padding:9px 20px;font-size:12.5px;color:var(--text-2);z-index:850;display:flex;align-items:center;gap:8px;white-space:nowrap;backdrop-filter:var(--glass-blur-soft);-webkit-backdrop-filter:var(--glass-blur-soft)}
+  #instruction .dot{width:6px;height:6px;border-radius:50%;background:var(--brand);flex-shrink:0}
+
+  /* ── LOADER ── */
+  #loader{position:fixed;inset:0;background:rgba(150,170,220,.25);display:none;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(6px)}
+  #loader.show{display:flex}
+  .loader-card{background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:var(--radius-lg);box-shadow:var(--glass-shadow);padding:18px 24px;display:flex;align-items:center;gap:12px;border:1px solid var(--glass-border)}
+  .loader-card span{font-size:13px;color:var(--text-2);font-weight:500}
+  .spinner{width:18px;height:18px;border:2.5px solid rgba(0,0,0,.08);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── EXPORT MENU ── */
+  .export-wrap{position:relative}
+  .export-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--radius-md);box-shadow:var(--glass-shadow);padding:6px;min-width:280px;z-index:1200;display:none}
+  .export-menu.show{display:block}
+  .export-menu button{display:flex;flex-direction:column;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;font-size:13px;color:var(--text);border-radius:10px;cursor:pointer;font-family:inherit;transition:.12s}
+  .export-menu button:hover{background:rgba(255,255,255,.6)}
+  .export-menu .menu-sub{font-size:11px;color:var(--text-2);margin-top:2px;font-weight:400}
+  .export-menu .menu-divider{height:1px;background:rgba(0,0,0,.08);margin:5px 4px}
+
+  /* ── BASEMAP CTRL ── */
+  #basemap-ctrl{position:fixed;left:12px;bottom:24px;z-index:850;display:flex;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:999px;box-shadow:var(--glass-shadow-sm);padding:3px;border:1px solid var(--glass-border)}
+  #basemap-ctrl button{border:none;background:transparent;font-size:11.5px;font-weight:500;color:var(--text-2);padding:5px 12px;border-radius:999px;cursor:pointer;transition:.15s ease}
+  #basemap-ctrl button.active{background:linear-gradient(180deg, rgba(64,150,255,.95), rgba(0,110,235,.95));color:#fff;box-shadow:0 2px 8px rgba(0,122,255,.4)}
+
+  /* ── LEYENDA ── */
+  #legend{position:fixed;bottom:24px;right:12px;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:var(--radius-md);box-shadow:var(--glass-shadow);padding:12px 16px;z-index:850;font-size:12px;border:1px solid var(--glass-border)}
+  #legend h3{font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px}
+  .leg-row{display:flex;align-items:center;gap:9px;padding:3px 0;font-size:12px;color:var(--text)}
+  .leg-swatch{width:32px;height:4px;border-radius:3px;flex-shrink:0}
+
+  /* ── Leaflet controls glass touch ── */
+  .leaflet-control-attribution{background:rgba(255,255,255,.5) !important;backdrop-filter:blur(6px);border-radius:8px 0 0 0}
+</style>
+</head>
+<body>
+
+<header id="app-header">
+  <div class="header-left">
+    <div class="breadcrumb">
+      <a href="paraderoscore.html">‹ ParaderosCore</a>
+    </div>
+    <div class="header-divider"></div>
+    <div class="logo">Clasificador <span>Vial</span></div>
+  </div>
+  <div class="header-right">
+    <span class="status-pill" id="status-pill">Sin red vial</span>
+    <input type="file" id="file-red" accept=".zip,.geojson,.json,.kml,.kmz">
+    <button class="btn primary" id="btn-load-red">🗺 Cargar red</button>
+    <input type="file" id="file-rutas" accept=".zip,.geojson,.json,.kml,.kmz">
+    <button class="btn" id="btn-load-rutas" disabled>🚌 Cargar rutas</button>
+    <div class="btn-group">
+      <button class="btn" id="btn-pincel" disabled title="Activar pincel de clasificación">🖌 Pincel</button>
+      <button class="btn" id="btn-undo" disabled title="Deshacer último cambio">↩ Deshacer</button>
+      <button class="btn" id="btn-toggle-rutas" disabled title="Mostrar/ocultar rutas">👁 Rutas</button>
+    </div>
+    <div class="export-wrap">
+      <button class="btn" id="btn-export" disabled>Exportar ▾</button>
+      <div class="export-menu" id="export-menu">
+        <button id="export-clasificacion">Exportar clasificación<span class="menu-sub">.geojson — red clasificada para ParaderosCore</span></button>
+        <div class="menu-divider"></div>
+        <button id="export-session">💾 Guardar sesión<span class="menu-sub">.json — red, rutas y clasificación</span></button>
+        <input type="file" id="file-session" accept=".json" style="display:none">
+        <button id="import-session">📂 Cargar sesión<span class="menu-sub">.json — restaurar sesión guardada</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="instruction">
+  <div class="dot"></div>
+  <span id="instruction-text">Cargá la red vial OSM para comenzar</span>
+</div>
+
+<aside id="panel">
+
+  <!-- Sección: Pincel -->
+  <div class="panel-section">
+    <div class="panel-section-header">
+      <div class="panel-section-icon blue">🖌</div>
+      <span class="panel-section-title">Pincel de clasificación</span>
+    </div>
+    <div class="hint" id="hint-pincel">Activá el pincel y clasificá haciendo clic o arrastrando sobre la red.</div>
+    <div class="brush-grid" style="margin-top:10px">
+      <div class="brush-btn" data-tipo="expresa">
+        <div class="brush-swatch" style="background:var(--c-expresa)"></div>
+        <div class="brush-label"><span class="brush-name">Vía Expresa</span><span class="brush-range">400–500 m</span></div>
+      </div>
+      <div class="brush-btn active" data-tipo="arterial">
+        <div class="brush-swatch" style="background:var(--c-arterial)"></div>
+        <div class="brush-label"><span class="brush-name">Vía Arterial</span><span class="brush-range">300–500 m</span></div>
+      </div>
+      <div class="brush-btn" data-tipo="colectora">
+        <div class="brush-swatch" style="background:var(--c-colectora)"></div>
+        <div class="brush-label"><span class="brush-name">Vía Colectora</span><span class="brush-range">300–500 m</span></div>
+      </div>
+      <div class="brush-btn" data-tipo="local">
+        <div class="brush-swatch" style="background:var(--c-local)"></div>
+        <div class="brush-label"><span class="brush-name">Vía Local</span><span class="brush-range">200–500 m</span></div>
+      </div>
+      <div class="brush-btn" data-tipo="limpiar">
+        <div class="brush-swatch" style="background:#bbb"></div>
+        <div class="brush-label"><span class="brush-name">Limpiar</span><span class="brush-range">sin clasificar</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección: Buscar -->
+  <div class="panel-section">
+    <div class="panel-section-header">
+      <div class="panel-section-icon purple">🔍</div>
+      <span class="panel-section-title">Buscar por nombre de vía</span>
+    </div>
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Ej: Av. España…" disabled>
+    </div>
+    <div class="search-results" id="search-results">
+      <div class="hint">Cargá la red para buscar.</div>
+    </div>
+    <button class="btn btn-clasificar-todos" id="btn-clasificar-todos" disabled>Clasificar resaltados como: <span id="lbl-tipo-activo">Arterial</span></button>
+  </div>
+
+  <!-- Sección: Resumen -->
+  <div class="panel-section">
+    <div class="panel-section-header">
+      <div class="panel-section-icon green">📊</div>
+      <span class="panel-section-title">Resumen</span>
+    </div>
+    <div class="count-grid">
+      <div class="count-card expresa"><div class="cv" id="cnt-expresa">0</div><div class="cl">Expresa</div></div>
+      <div class="count-card arterial"><div class="cv" id="cnt-arterial">0</div><div class="cl">Arterial</div></div>
+      <div class="count-card colectora"><div class="cv" id="cnt-colectora">0</div><div class="cl">Colectora</div></div>
+      <div class="count-card local"><div class="cv" id="cnt-local">0</div><div class="cl">Local</div></div>
+    </div>
+    <div class="count-total" id="cnt-total">—</div>
+  </div>
+
+</aside>
+
+<div id="map"></div>
+<div id="loader"><div class="loader-card"><div class="spinner"></div><span id="loader-text">Procesando…</span></div></div>
+
+<div id="basemap-ctrl">
+  <button id="bm-claro" class="active">Claro</button>
+  <button id="bm-oscuro">Oscuro</button>
+  <button id="bm-satelite">Satélite</button>
+  <button id="bm-osm">OSM</button>
+</div>
+
+<div id="legend">
+  <h3>Jerarquía vial</h3>
+  <div class="leg-row"><div class="leg-swatch" style="background:var(--c-expresa)"></div>Vía Expresa</div>
+  <div class="leg-row"><div class="leg-swatch" style="background:var(--c-arterial)"></div>Vía Arterial</div>
+  <div class="leg-row"><div class="leg-swatch" style="background:var(--c-colectora)"></div>Vía Colectora</div>
+  <div class="leg-row"><div class="leg-swatch" style="background:var(--c-local)"></div>Vía Local</div>
+  <div class="leg-row"><div class="leg-swatch" style="background:#1c1c1e"></div>Sin clasificar</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/proj4@2.10.0/dist/proj4.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.min.js"></script>
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://unpkg.com/togeojson@0.16.0/togeojson.js"></script>
+<script>
+const el = id => document.getElementById(id);
+
+/* ---- Mapa ---- */
+const TILES = {
+  claro:   'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  oscuro:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  satelite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  osm:     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+};
+const map = L.map('map',{zoomControl:false}).setView([-9.19,-75.015],6);
+let baseTile = L.tileLayer(TILES.claro,{maxZoom:19,attribution:'© OpenStreetMap © CARTO'}).addTo(map);
+['claro','oscuro','satelite','osm'].forEach(k=>{
+  el('bm-'+k).addEventListener('click',()=>{
+    map.removeLayer(baseTile);
+    baseTile=L.tileLayer(TILES[k],{maxZoom:19}).addTo(map);
+    ['claro','oscuro','satelite','osm'].forEach(j=>el('bm-'+j).classList.toggle('active',j===k));
+  });
+});
+
+/* ---- UTM defs ---- */
+proj4.defs('EPSG:32717','+proj=utm +zone=17 +south +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:32718','+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:32719','+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs');
+
+/* ---- Estado ---- */
+let redFeatures = [];   // GeoJSON features de la red (ya en WGS84)
+let redLayer = null;    // L.geoJSON de la red pintable
+let rutasLayer = null;
+let rutasVisible = true;
+let segmentos = [];     // [{fi, tipo, layer}] — una entrada por feature
+let brushTipo = 'arterial';
+let pintandoON = false;
+let isDragging = false;
+let undoStack = [];
+let currentBatch = null;
+
+const TIPO_COLOR = {expresa:'#e2483d',arterial:'#f97316',colectora:'#eab308',local:'#22a55e',limpiar:'#1c1c1e'};
+const TIPO_WEIGHT = {expresa:4,arterial:3.5,colectora:3,local:2.5,limpiar:1.5};
+const RANGO = {expresa:{min:400,max:500},arterial:{min:300,max:500},colectora:{min:300,max:500},local:{min:200,max:500}};
+
+/* ---- readGeoFile + reproyección ---- */
+function findFirstCoord(geom){
+  if(!geom) return null;
+  let c=geom.coordinates; while(Array.isArray(c)&&Array.isArray(c[0]))c=c[0];
+  return(Array.isArray(c)&&typeof c[0]==='number')?c:null;
+}
+function transformCoords(coords,fn){
+  if(typeof coords[0]==='number') return fn(coords);
+  return coords.map(c=>transformCoords(c,fn));
+}
+function reprojectGeoJSON(gj,fromEPSG){
+  const fn=xy=>proj4(fromEPSG,'EPSG:4326',xy);
+  function walkGeom(geom){
+    if(!geom) return;
+    if(geom.type==='GeometryCollection'){geom.geometries.forEach(walkGeom);return;}
+    if(geom.coordinates) geom.coordinates=transformCoords(geom.coordinates,fn);
+  }
+  if(gj.features) gj.features.forEach(f=>walkGeom(f.geometry));
+  else if(gj.geometry) walkGeom(gj.geometry);
+  return gj;
+}
+function detectCRS(gj){
+  const name=gj&&gj.crs&&gj.crs.properties&&gj.crs.properties.name;
+  if(!name) return null;
+  const m=String(name).match(/EPSG:{1,2}(\d+)/i);
+  return m?'EPSG:'+m[1]:null;
+}
+const PERU_BBOX={lonMin:-82,lonMax:-68,latMin:-19.5,latMax:1};
+function detectUTM(xy){
+  for(const e of ['EPSG:32717','EPSG:32718','EPSG:32719']){
+    try{const[lon,lat]=proj4(e,'EPSG:4326',xy);if(lon>=PERU_BBOX.lonMin&&lon<=PERU_BBOX.lonMax&&lat>=PERU_BBOX.latMin&&lat<=PERU_BBOX.latMax)return e;}catch(_){}
+  }return null;
+}
+function ensureLonLat(gj){
+  const feats=gj.features||(gj.geometry?[gj]:[]);
+  let sample=null;
+  for(const f of feats){const c=findFirstCoord(f.geometry);if(c){sample=c;break;}}
+  if(!sample) return gj;
+  const[x,y]=sample;
+  if(Math.abs(x)<=180&&Math.abs(y)<=90) return gj;
+  const epsg=detectCRS(gj)||detectUTM(sample);
+  if(!epsg) throw new Error('No se pudo detectar la proyección. Exportá en EPSG:4326.');
+  return reprojectGeoJSON(gj,epsg);
+}
+async function readGeoFile(file){
+  const name=file.name.toLowerCase(); let gj;
+  if(name.endsWith('.zip')){const buf=await file.arrayBuffer();const out=await shp(buf);gj=out.type?out:out[Object.keys(out)[0]];}
+  else if(name.endsWith('.geojson')||name.endsWith('.json')){gj=JSON.parse(await file.text());}
+  else if(name.endsWith('.kml')){const xml=new DOMParser().parseFromString(await file.text(),'text/xml');gj=toGeoJSON.kml(xml);}
+  else if(name.endsWith('.kmz')){const zip=await JSZip.loadAsync(await file.arrayBuffer());const kmlEntry=Object.values(zip.files).find(f=>f.name.toLowerCase().endsWith('.kml'));if(!kmlEntry)throw new Error('KMZ sin KML.');const xml=new DOMParser().parseFromString(await kmlEntry.async('text'),'text/xml');gj=toGeoJSON.kml(xml);}
+  else throw new Error('Formato no soportado.');
+  return ensureLonLat(gj);
+}
+
+/* ---- Renderizar red ---- */
+function renderRed(){
+  if(redLayer){map.removeLayer(redLayer);redLayer=null;}
+  segmentos=[];
+  redLayer=L.layerGroup();
+  redFeatures.forEach((f,fi)=>{
+    if(!f.geometry) return;
+    let coords=null;
+    if(f.geometry.type==='LineString') coords=f.geometry.coordinates;
+    else if(f.geometry.type==='MultiLineString') coords=f.geometry.coordinates.reduce((a,b)=>b.length>a.length?b:a,[]);
+    if(!coords||coords.length<2) return;
+    const seg={fi, tipo:null, layer:null};
+    const line=L.polyline(coords.map(c=>[c[1],c[0]]),{
+      color:'#1c1c1e', weight:1.5, opacity:0.7, interactive:true
+    });
+    line.on('click',e=>{
+      if(!pintandoON) return;
+      L.DomEvent.stopPropagation(e);
+      clasificar(fi, brushTipo, true);
+    });
+    line.on('mouseover',()=>{ if(pintandoON) line.setStyle({weight:(TIPO_WEIGHT[seg.tipo]||1.5)+2,opacity:1}); });
+    line.on('mouseout', ()=>{ if(pintandoON) line.setStyle({weight:TIPO_WEIGHT[seg.tipo]||1.5,opacity:0.7}); });
+    seg.layer=line;
+    line.addTo(redLayer);
+    segmentos.push(seg);
+  });
+  redLayer.addTo(map);
+  updateCounts();
+}
+
+function clasificar(fi, tipo, nuevoBatch=false){
+  const seg=segmentos.find(s=>s.fi===fi);
+  if(!seg) return;
+  const tipoReal = tipo==='limpiar'?null:tipo;
+  if(seg.tipo===tipoReal) return;
+  if(nuevoBatch||!currentBatch){
+    currentBatch=[];
+    undoStack.push(currentBatch);
+    if(undoStack.length>50) undoStack.shift();
+  }
+  currentBatch.push({fi, anterior:seg.tipo});
+  seg.tipo=tipoReal;
+  const color=tipoReal?TIPO_COLOR[tipoReal]:'#1c1c1e';
+  const weight=tipoReal?TIPO_WEIGHT[tipoReal]:1.5;
+  if(seg.layer) seg.layer.setStyle({color,weight,opacity:0.85});
+  el('btn-undo').disabled=false;
+  updateCounts();
+}
+
+function updateCounts(){
+  ['expresa','arterial','colectora','local'].forEach(t=>{
+    el('cnt-'+t).textContent=segmentos.filter(s=>s.tipo===t).length;
+  });
+  const total=segmentos.filter(s=>s.tipo).length;
+  el('cnt-total').textContent=`${segmentos.length} segmentos · ${total} clasificados`;
+}
+
+/* ---- Búsqueda por nombre ---- */
+let resaltados = []; // índices fi de segmentos resaltados actualmente
+
+function buildNameIndex(){
+  // Construir índice name → [fi, fi, ...]
+  const idx = new Map();
+  redFeatures.forEach((f,fi)=>{
+    const name = (f.properties?.name||'').trim();
+    if(!name) return;
+    const key = name.toLowerCase();
+    if(!idx.has(key)) idx.set(key,[]);
+    idx.get(key).push(fi);
+  });
+  return idx;
+}
+let nameIndex = new Map();
+
+function buscar(query){
+  const q = query.toLowerCase().trim();
+  const container = el('search-results');
+  // Quitar resaltado anterior
+  limpiarResaltado();
+  if(!q){ container.innerHTML='<div class="hint">Escribí el nombre de una vía.</div>'; el('btn-clasificar-todos').disabled=true; return; }
+
+  // Buscar coincidencias parciales
+  const resultados = [];
+  nameIndex.forEach((fis, name)=>{
+    if(name.includes(q)) resultados.push({name, fis});
+  });
+  resultados.sort((a,b)=>a.name.localeCompare(b.name));
+
+  if(!resultados.length){
+    container.innerHTML='<div class="hint">Sin resultados para "'+query+'".</div>';
+    el('btn-clasificar-todos').disabled=true;
+    return;
+  }
+
+  container.innerHTML='';
+  resultados.slice(0,20).forEach(({name,fis})=>{
+    const row=document.createElement('div');
+    row.className='search-result-row';
+    row.innerHTML=`<span class="search-result-name">${name}</span><span class="search-result-count">${fis.length} tramo${fis.length>1?'s':''}</span>`;
+    row.addEventListener('click',()=>{
+      // Resaltar estos segmentos en el mapa
+      limpiarResaltado();
+      resaltados=fis;
+      resaltarSegmentos(fis);
+      row.classList.add('resaltado');
+      el('btn-clasificar-todos').disabled=false;
+      // Hacer zoom a los segmentos resaltados
+      const layers=fis.map(fi=>segmentos.find(s=>s.fi===fi)?.layer).filter(Boolean);
+      if(layers.length) map.fitBounds(L.featureGroup(layers).getBounds(),{padding:[60,60],maxZoom:17});
+    });
+    container.appendChild(row);
+  });
+  if(resultados.length>20){
+    const more=document.createElement('div');
+    more.className='hint';
+    more.style.padding='4px 2px';
+    more.textContent=`... y ${resultados.length-20} más. Refiná la búsqueda.`;
+    container.appendChild(more);
+  }
+}
+
+function resaltarSegmentos(fis){
+  fis.forEach(fi=>{
+    const seg=segmentos.find(s=>s.fi===fi);
+    if(!seg?.layer) return;
+    seg.layer.setStyle({color:'#06b6d4',weight:5,opacity:1});
+  });
+}
+
+function limpiarResaltado(){
+  resaltados.forEach(fi=>{
+    const seg=segmentos.find(s=>s.fi===fi);
+    if(!seg?.layer) return;
+    const color=seg.tipo?TIPO_COLOR[seg.tipo]:'#1c1c1e';
+    const weight=seg.tipo?TIPO_WEIGHT[seg.tipo]:1.5;
+    seg.layer.setStyle({color,weight,opacity:0.85});
+  });
+  resaltados=[];
+  // Quitar resaltado visual de rows
+  document.querySelectorAll('.search-result-row.resaltado').forEach(r=>r.classList.remove('resaltado'));
+}
+
+el('search-input').addEventListener('input', e=>buscar(e.target.value));
+
+el('btn-clasificar-todos').addEventListener('click',()=>{
+  if(!resaltados.length) return;
+  currentBatch=null;
+  resaltados.forEach(fi=>clasificar(fi, brushTipo, false));
+  currentBatch=null;
+  // Actualizar visual (clasificar ya lo hace, pero el resaltado queda amarillo)
+  limpiarResaltado();
+  el('btn-clasificar-todos').disabled=true;
+});
+map.getContainer().addEventListener('mousedown',e=>{
+  if(!pintandoON||e.button!==0) return;
+  isDragging=true; currentBatch=null; map.dragging.disable();
+});
+document.addEventListener('mouseup',()=>{ if(isDragging){isDragging=false;map.dragging.enable();currentBatch=null;} });
+map.on('mousemove',e=>{
+  if(!pintandoON||!isDragging) return;
+  let nearest=null,minD=20;
+  segmentos.forEach(seg=>{
+    if(!seg.layer) return;
+    const lls=seg.layer.getLatLngs();
+    const mp=map.latLngToContainerPoint(e.latlng);
+    for(let i=0;i<lls.length-1;i++){
+      const a=map.latLngToContainerPoint(lls[i]),b=map.latLngToContainerPoint(lls[i+1]);
+      const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
+      const t=len2===0?0:Math.max(0,Math.min(1,((mp.x-a.x)*dx+(mp.y-a.y)*dy)/len2));
+      const d=Math.hypot(mp.x-a.x-t*dx,mp.y-a.y-t*dy);
+      if(d<minD){minD=d;nearest=seg.fi;}
+    }
+  });
+  if(nearest!==null) clasificar(nearest,brushTipo,false);
+});
+
+/* ---- Carga red vial ---- */
+el('btn-load-red').addEventListener('click',()=>el('file-red').click());
+el('file-red').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  showLoader('Leyendo red vial…');
+  try{
+    const gj=await readGeoFile(file);
+    redFeatures=(gj.features||[]).filter(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
+    if(!redFeatures.length) throw new Error('No se encontraron líneas.');
+    renderRed();
+    const bounds=redLayer.getLayers().length?L.featureGroup(redLayer.getLayers()).getBounds():null;
+    if(bounds) map.fitBounds(bounds,{padding:[30,30]});
+    el('status-pill').textContent=`${redFeatures.length.toLocaleString('es-PE')} segmentos`;
+    el('status-pill').classList.add('ok');
+    el('btn-load-red').classList.remove('primary');
+    el('btn-load-red').classList.add('loaded');
+    el('btn-load-red').textContent='✓ Red vial cargada';
+    el('btn-load-rutas').disabled=false;
+    el('btn-pincel').disabled=false;
+    el('btn-export').disabled=false;
+    // Activar búsqueda
+    nameIndex=buildNameIndex();
+    el('search-input').disabled=false;
+    el('search-input').placeholder='Ej: Av. España, Jr. Bolívar…';
+    el('search-results').innerHTML='<div class="hint">Escribí el nombre de una vía.</div>';
+    el('instruction-text').textContent='Red cargada — cargá las rutas para ver su trazado, luego usá el pincel para clasificar';
+  }catch(err){alert('Error: '+err.message);}
+  hideLoader(); e.target.value='';
+});
+
+/* ---- Carga rutas ---- */
+el('btn-load-rutas').addEventListener('click',()=>el('file-rutas').click());
+el('file-rutas').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  showLoader('Cargando rutas…');
+  try{
+    const gj=await readGeoFile(file);
+    if(rutasLayer){map.removeLayer(rutasLayer);rutasLayer=null;}
+    rutasLayer=L.geoJSON(gj,{style:{color:'#7c3aed',weight:2.5,opacity:0.7},pointToLayer:()=>null}).addTo(map);
+    el('btn-load-rutas').classList.add('loaded');
+    el('btn-load-rutas').textContent='✓ Rutas cargadas';
+    el('btn-toggle-rutas').disabled=false;
+    el('btn-toggle-rutas').classList.add('mode-active');
+    rutasVisible=true;
+    el('instruction-text').textContent='Activá el pincel, elegí la jerarquía y pintá sobre la red siguiendo las rutas moradas';
+  }catch(err){alert('Error: '+err.message);}
+  hideLoader(); e.target.value='';
+});
+
+/* ---- Pincel toggle ---- */
+el('btn-pincel').addEventListener('click',()=>{
+  pintandoON=!pintandoON;
+  el('btn-pincel').classList.toggle('mode-active',pintandoON);
+  el('map').classList.toggle('cursor-paint',pintandoON);
+  if(!pintandoON) map.dragging.enable();
+  el('instruction-text').textContent=pintandoON
+    ?`Pincel activo (${brushTipo}) — clic izquierdo arrastrá para pintar, derecho para navegar`
+    :'Pincel desactivado';
+});
+
+/* ---- Brush selector ---- */
+document.querySelectorAll('.brush-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    brushTipo=btn.dataset.tipo;
+    document.querySelectorAll('.brush-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    // Actualizar label del botón clasificar todos
+    const labels={expresa:'Expresa',arterial:'Arterial',colectora:'Colectora',local:'Local',limpiar:'Sin clasificar'};
+    el('lbl-tipo-activo').textContent=labels[brushTipo]||brushTipo;
+    if(pintandoON) el('instruction-text').textContent=`Pincel activo (${brushTipo})`;
+  });
+});
+
+/* ---- Toggle rutas ---- */
+el('btn-toggle-rutas').addEventListener('click',()=>{
+  if(!rutasLayer) return;
+  rutasVisible=!rutasVisible;
+  if(rutasVisible){rutasLayer.addTo(map);el('btn-toggle-rutas').classList.add('mode-active');}
+  else{map.removeLayer(rutasLayer);el('btn-toggle-rutas').classList.remove('mode-active');}
+});
+
+/* ---- Deshacer ---- */
+el('btn-undo').addEventListener('click',()=>{
+  if(!undoStack.length) return;
+  const batch=undoStack.pop();
+  batch.slice().reverse().forEach(({fi,anterior})=>{
+    const seg=segmentos.find(s=>s.fi===fi); if(!seg) return;
+    seg.tipo=anterior;
+    const color=anterior?TIPO_COLOR[anterior]:'#1c1c1e';
+    const weight=anterior?TIPO_WEIGHT[anterior]:1.5;
+    if(seg.layer) seg.layer.setStyle({color,weight,opacity:0.85});
+  });
+  if(!undoStack.length) el('btn-undo').disabled=true;
+  updateCounts();
+});
+
+/* ---- Export menu ---- */
+el('btn-export').addEventListener('click',e=>{e.stopPropagation();el('export-menu').classList.toggle('show');});
+document.addEventListener('click',e=>{if(e.target.id!=='btn-export'&&!el('export-menu').contains(e.target))el('export-menu').classList.remove('show');});
+
+function downloadText(fn,text){
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([text],{type:'application/json'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+el('export-clasificacion').addEventListener('click',()=>{
+  el('export-menu').classList.remove('show');
+  const clasificados=segmentos.filter(s=>s.tipo);
+  if(!clasificados.length){alert('No hay segmentos clasificados.');return;}
+  const features=clasificados.map(seg=>{
+    const f=redFeatures[seg.fi];
+    return{type:'Feature',properties:{...f.properties,jerarquia:seg.tipo,...RANGO[seg.tipo]},geometry:f.geometry};
+  });
+  downloadText('plancore-clasificacion-vial.geojson',JSON.stringify({
+    type:'FeatureCollection',
+    properties:{tipo:'plancore-clasificacion-vial',version:1,exportadoEn:new Date().toISOString()},
+    features
+  },null,2));
+});
+
+/* ---- Sesión ---- */
+el('export-session').addEventListener('click',()=>{
+  el('export-menu').classList.remove('show');
+  if(!redFeatures.length){alert('No hay datos.');return;}
+  downloadText('plancore-sesion-clasificador.json',JSON.stringify({
+    version:1,tipo:'plancore-sesion-clasificador',
+    guardadoEn:new Date().toISOString(),
+    redFeatures,
+    clasificacion:segmentos.map(s=>({fi:s.fi,tipo:s.tipo}))
+  }));
+});
+el('import-session').addEventListener('click',()=>{el('export-menu').classList.remove('show');el('file-session').click();});
+el('file-session').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  showLoader('Restaurando sesión…');
+  try{
+    const s=JSON.parse(await file.text());
+    if(!s.tipo?.includes('clasificador')) throw new Error('No es una sesión del Clasificador Vial.');
+    // Limpiar estado anterior
+    if(redLayer){map.removeLayer(redLayer);redLayer=null;}
+    // Mantener rutas si ya estaban cargadas
+    limpiarResaltado();
+    undoStack=[]; el('btn-undo').disabled=true;
+    redFeatures=s.redFeatures||[];
+    renderRed();
+    s.clasificacion.forEach(({fi,tipo})=>{
+      const seg=segmentos.find(x=>x.fi===fi); if(!seg||!tipo) return;
+      seg.tipo=tipo;
+      if(seg.layer) seg.layer.setStyle({color:TIPO_COLOR[tipo],weight:TIPO_WEIGHT[tipo],opacity:0.85});
+    });
+    const bounds=redLayer.getLayers().length?L.featureGroup(redLayer.getLayers()).getBounds():null;
+    if(bounds) map.fitBounds(bounds,{padding:[30,30]});
+    el('btn-load-red').classList.add('loaded');el('btn-load-red').textContent='✓ Red vial cargada';
+    el('btn-load-rutas').disabled=false;el('btn-pincel').disabled=false;el('btn-export').disabled=false;
+    nameIndex=buildNameIndex();
+    el('search-input').disabled=false;
+    el('search-results').innerHTML='<div class="hint">Escribí el nombre de una vía.</div>';
+    el('status-pill').textContent=`${redFeatures.length.toLocaleString('es-PE')} segmentos`;
+    el('status-pill').classList.add('ok');
+    updateCounts();
+    el('instruction-text').textContent='Sesión restaurada — podés seguir clasificando';
+  }catch(err){alert('Error: '+err.message);}
+  hideLoader(); e.target.value='';
+});
+
+function showLoader(t){el('loader-text').textContent=t;el('loader').classList.add('show');}
+function hideLoader(){el('loader').classList.remove('show');}
+</script>
+</body>
+</html>
