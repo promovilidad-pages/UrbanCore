@@ -417,6 +417,7 @@ async function readGeoFile(file){
 /* ── ESTADO GLOBAL ── */
 let redFeatures=[];
 let redLayer=null;
+let hitLayer=null; // capa invisible de clics — hay que borrarla en cada renderRed, si no se acumula
 let segIndex=[];          // [{fi, segId, latlngs, midLat, midLng, layer}]
 let segIndexById=new Map(); // segId → entrada de segIndex, acceso O(1) en vez de recorrer el array
 
@@ -488,6 +489,7 @@ function adjustColor(hex,amt){
 /* ── RENDER RED ── */
 function renderRed(){
   if(redLayer){map.removeLayer(redLayer);redLayer=null;}
+  if(hitLayer){map.removeLayer(hitLayer);hitLayer=null;}
   segIndex=[];
   const renderer=L.canvas({padding:0.5});
   const hitRenderer=L.canvas({padding:0.5});
@@ -522,7 +524,7 @@ function renderRed(){
 
   // Capa hit — gruesa e invisible, captura eventos
   let fiCounter2=-1;
-  L.geoJSON({type:'FeatureCollection',features:redFeatures},{
+  hitLayer=L.geoJSON({type:'FeatureCollection',features:redFeatures},{
     renderer:hitRenderer,
     style:()=>({color:'transparent',weight:12,opacity:0,fillOpacity:0}),
     onEachFeature:(feature,layer)=>{
