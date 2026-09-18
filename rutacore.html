@@ -127,6 +127,11 @@ input[type=file]{display:none}
 .route-vis:hover{opacity:1}
 .route-del{background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-2);padding:3px;border-radius:4px;opacity:.45;transition:.15s;flex-shrink:0}
 .route-del:hover{opacity:1;color:#c0392b}
+.route-order{display:flex;flex-direction:column;flex-shrink:0}
+.route-move-up,.route-move-down{background:none;border:none;cursor:pointer;font-size:9px;color:var(--text-2);padding:1px 3px;border-radius:3px;opacity:.4;transition:.15s;line-height:1}
+.route-move-up:hover,.route-move-down:hover{opacity:1;background:rgba(0,0,0,.06)}
+.route-move-up:disabled,.route-move-down:disabled{opacity:.12;cursor:default}
+.route-move-up:disabled:hover,.route-move-down:disabled:hover{background:none}
 
 /* Variantes */
 .variant-btns{display:flex;gap:4px;padding:0 10px 9px}
@@ -872,7 +877,7 @@ function renderRoutesPanel(){
     return;
   }
   list.innerHTML='';
-  routes.forEach(r=>{
+  routes.forEach((r,idx)=>{
     const isActive=(r.id===activeRouteId);
     const idaKm=variantKm(r.id,'ida'),vueltaKm=variantKm(r.id,'vuelta');
     const rVis=r.vis!==false,idaVis=rVis&&r.visIda!==false,vueltaVis=rVis&&r.visVuelta!==false;
@@ -884,6 +889,10 @@ function renderRoutesPanel(){
         <div class="route-name-wrap">
           <input class="route-name-input" type="text" value="${r.nombre}" data-rid="${r.id}">
           <div class="route-km">${fmtKm(idaKm+vueltaKm)} · ${r.ida.length}+${r.vuelta.length} segs</div>
+        </div>
+        <div class="route-order">
+          <button class="route-move-up" data-rid="${r.id}" title="Subir en la lista"${idx===0?' disabled':''}><i class="fa-solid fa-chevron-up"></i></button>
+          <button class="route-move-down" data-rid="${r.id}" title="Bajar en la lista"${idx===routes.length-1?' disabled':''}><i class="fa-solid fa-chevron-down"></i></button>
         </div>
         <button class="route-vis" data-rid="${r.id}" title="${rVis?'Ocultar':'Mostrar'} ruta"><i class="fa-solid ${rVis?'fa-eye':'fa-eye-slash'}"></i></button>
         <button class="route-del" data-rid="${r.id}" title="Eliminar ruta"><i class="fa-solid fa-trash"></i></button>
@@ -903,13 +912,31 @@ function renderRoutesPanel(){
 
   list.querySelectorAll('.route-header[data-rid]').forEach(hdr=>{
     hdr.addEventListener('click',e=>{
-      if(e.target.closest('.route-del,.route-vis,.route-name-input'))return;
+      if(e.target.closest('.route-del,.route-vis,.route-name-input,.route-move-up,.route-move-down'))return;
       selectRoute(hdr.dataset.rid,activeVariant);
     });
   });
   list.querySelectorAll('.route-name-input').forEach(inp=>{
     inp.addEventListener('change',()=>{const r=routes.find(x=>x.id===inp.dataset.rid);if(r){r.nombre=inp.value.trim()||r.nombre;renderRoutesPanel();updateInfoBar();}});
     inp.addEventListener('click',e=>e.stopPropagation());
+  });
+  list.querySelectorAll('.route-move-up').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const i=routes.findIndex(x=>x.id===btn.dataset.rid);
+      if(i<=0)return;
+      [routes[i-1],routes[i]]=[routes[i],routes[i-1]];
+      renderRoutesPanel();
+    });
+  });
+  list.querySelectorAll('.route-move-down').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const i=routes.findIndex(x=>x.id===btn.dataset.rid);
+      if(i===-1||i>=routes.length-1)return;
+      [routes[i],routes[i+1]]=[routes[i+1],routes[i]];
+      renderRoutesPanel();
+    });
   });
   list.querySelectorAll('.route-del').forEach(btn=>{
     btn.addEventListener('click',e=>{
