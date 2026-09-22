@@ -219,7 +219,7 @@
       <div class="export-menu" id="export-menu">
         <button id="export-clasificacion"><span><i class="fa-solid fa-layer-group"></i>Exportar clasificación</span><span class="menu-sub">.geojson — red clasificada para ParaderosCore</span></button>
         <div class="menu-divider"></div>
-        <button id="export-session"><span><i class="fa-solid fa-floppy-disk"></i>Guardar sesión</span><span class="menu-sub">.json — red, rutas y clasificación</span></button>
+        <button id="export-session"><span><i class="fa-solid fa-floppy-disk"></i>Guardar sesión</span><span class="menu-sub">.json — red vial y clasificación</span></button>
       </div>
     </div>
   </div>
@@ -331,6 +331,7 @@ let rutasLayer = null;
 let rutasVisible = true;
 let segmentos = [];        // [{fi, tipo, latlngs, layer}]
 let segByFi = new Map();   // fi → segmento, acceso O(1) (antes: segmentos.find en cada operación)
+let segByKey = new Map();  // ID por geometría → segmento (para pasar la clasificación a una red corregida)
 let grid = new Map();      // índice espacial: celda → [segmentos], para ubicar el tramo bajo el mouse sin recorrer toda la red
 let redBounds = null;
 let brushTipo = 'arterial';
@@ -541,9 +542,20 @@ function nearestSeg(pt,tol){
 }
 
 /* ── RENDER RED ── canvas en vez de SVG: un solo lienzo en lugar de 48 000 elementos en la página */
+/* ── ID ESTABLE POR GEOMETRÍA ── (misma lógica que RutaCore)
+   Cada tramo se identifica por sus coordenadas de inicio, medio y fin, no por su
+   posición en la red. Así, si la red se corrige (se agregan o borran tramos), los
+   tramos que no cambiaron se reconocen y conservan su clasificación. */
+function segKeyFromLatLngs(ll){
+  const r=n=>n.toFixed(6);
+  const a=ll[0],b=ll[ll.length-1],m=ll[Math.floor(ll.length/2)];
+  return `${r(a[0])},${r(a[1])}|${r(m[0])},${r(m[1])}|${r(b[0])},${r(b[1])}`;
+}
+
 function renderRed(){
   if(redLayer){map.removeLayer(redLayer);redLayer=null;}
-  segmentos=[]; segByFi=new Map(); grid=new Map();
+  segmentos=[]; segByFi=new Map(); segByKey=new Map(); grid=new Map();
+  const usedKeys=new Map(); // dos tramos con la misma geometría se desambiguan con #n
   hoverSeg=null; resaltados=[]; resaltadoSet.clear();
   Object.keys(counts).forEach(k=>counts[k]=0);
   const renderer=L.canvas({padding:0.5});
@@ -557,11 +569,13 @@ function renderRed(){
     if(!coords||coords.length<2) return;
     const latlngs=coords.map(c=>[c[1],c[0]]);
     for(const p of latlngs){if(p[0]<minLat)minLat=p[0];if(p[0]>maxLat)maxLat=p[0];if(p[1]<minLng)minLng=p[1];if(p[1]>maxLng)maxLng=p[1];}
-    const seg={fi,tipo:null,latlngs,layer:null};
+    let key=segKeyFromLatLngs(latlngs);
+    if(usedKeys.has(key)){const n=usedKeys.get(key)+1;usedKeys.set(key,n);key+='#'+n;}else usedKeys.set(key,0);
+    const seg={fi,key,tipo:null,latlngs,layer:null};
     // interactive:false — los clics y el hover los resuelve el índice espacial, no Leaflet
     seg.layer=L.polyline(latlngs,{renderer,interactive:false,...styleFor(seg)});
     seg.layer.addTo(redLayer);
-    segmentos.push(seg); segByFi.set(fi,seg); addToGrid(seg);
+    segmentos.push(seg); segByFi.set(fi,seg); segByKey.set(key,seg); addToGrid(seg);
   });
   redLayer.addTo(map);
   redBounds=segmentos.length?L.latLngBounds([minLat,minLng],[maxLat,maxLng]):null;
@@ -766,12 +780,42 @@ el('file-red').addEventListener('change',async e=>{
     const gj=await readGeoFile(file);
     const feats=(gj.features||[]).filter(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
     if(!feats.length) throw new Error('No se encontraron líneas.');
+    // ¿Ya hay clasificación? → ofrecer pasarla a la red nueva (red corregida en RutaCore)
+    const clasifPrevia=new Map();
+    segmentos.forEach(sg=>{if(sg.tipo)clasifPrevia.set(sg.key,sg.tipo);});
+    const keysPrevias=new Set(segmentos.map(sg=>sg.key));
+    let transferir=false;
+    if(clasifPrevia.size){
+      hideLoader();
+      transferir=confirm(`Ya tenés ${clasifPrevia.size.toLocaleString('es-PE')} tramos clasificados.\n\n`+
+        `Aceptar → pasar la clasificación a esta red nueva (los tramos que no cambiaron la conservan).\n`+
+        `Cancelar → empezar de cero con la red nueva.`);
+    }
     showLoader('Dibujando red…'); await nextFrame();
     redFeatures=feats;
     undoStack=[]; currentBatch=null; el('btn-undo').disabled=true;
     renderRed();
-    activarUIRed();
-    setInstruction('Red cargada — cargá las rutas para ver su trazado, luego usá el pincel para clasificar');
+    if(transferir){
+      let conservados=0,nuevos=0;
+      segmentos.forEach(sg=>{
+        if(!keysPrevias.has(sg.key)){nuevos++;return;}
+        const t=clasifPrevia.get(sg.key);
+        if(t&&TIPO_COLOR[t]){setTipo(sg,t);conservados++;}
+      });
+      let eliminados=0; keysPrevias.forEach(k=>{if(!segByKey.has(k))eliminados++;});
+      let perdidos=0; clasifPrevia.forEach((t,k)=>{if(!segByKey.has(k))perdidos++;});
+      activarUIRed();
+      scheduleCounts();
+      const resumen=`${conservados.toLocaleString('es-PE')} clasificados conservados · ${nuevos.toLocaleString('es-PE')} tramos nuevos sin clasificar · ${eliminados.toLocaleString('es-PE')} tramos ya no están en la red`;
+      setInstruction('Red actualizada — '+resumen);
+      hideLoader();
+      alert('Red actualizada\n\n'+resumen.split(' · ').join('\n')+
+        (perdidos?`\n\n(${perdidos.toLocaleString('es-PE')} de los eliminados estaban clasificados)`:'')+
+        '\n\nGuardá la sesión para quedarte con la red nueva y la clasificación.');
+    }else{
+      activarUIRed();
+      setInstruction('Red cargada — cargá las rutas para ver su trazado, luego usá el pincel para clasificar');
+    }
   }catch(err){alert('Error: '+err.message);}
   hideLoader(); e.target.value='';
 });
@@ -838,15 +882,17 @@ el('export-clasificacion').addEventListener('click',()=>{
   },null,2));
 });
 
-/* ── SESIÓN ── (mismo formato que antes: las sesiones viejas siguen abriendo) */
+/* ── SESIÓN ──
+   v2: la clasificación se guarda por ID de geometría (solo los tramos clasificados).
+   Las sesiones v1 (por posición) siguen abriendo igual. */
 el('export-session').addEventListener('click',()=>{
   el('export-menu').classList.remove('show');
   if(!redFeatures.length){alert('No hay datos.');return;}
   downloadText('plancore-sesion-clasificador.json',JSON.stringify({
-    version:1,tipo:'plancore-sesion-clasificador',
+    version:2,tipo:'plancore-sesion-clasificador',
     guardadoEn:new Date().toISOString(),
     redFeatures,
-    clasificacion:segmentos.map(s=>({fi:s.fi,tipo:s.tipo}))
+    clasificacionIds:segmentos.filter(s=>s.tipo).map(s=>({id:s.key,tipo:s.tipo}))
   }));
 });
 el('btn-load-session').addEventListener('click',()=>el('file-session').click());
@@ -859,10 +905,17 @@ el('file-session').addEventListener('change',async e=>{
     undoStack=[]; currentBatch=null; el('btn-undo').disabled=true;
     redFeatures=s.redFeatures||[];
     renderRed(); // las rutas cargadas, si había, se mantienen
-    (s.clasificacion||[]).forEach(({fi,tipo})=>{
-      const seg=segByFi.get(fi); if(!seg||!tipo||!TIPO_COLOR[tipo]) return;
-      setTipo(seg,tipo);
-    });
+    if(Array.isArray(s.clasificacionIds)){
+      s.clasificacionIds.forEach(({id,tipo})=>{
+        const seg=segByKey.get(id); if(!seg||!TIPO_COLOR[tipo]) return;
+        setTipo(seg,tipo);
+      });
+    }else{
+      (s.clasificacion||[]).forEach(({fi,tipo})=>{ // sesiones viejas (v1)
+        const seg=segByFi.get(fi); if(!seg||!tipo||!TIPO_COLOR[tipo]) return;
+        setTipo(seg,tipo);
+      });
+    }
     activarUIRed();
     scheduleCounts();
     setInstruction('Sesión restaurada — podés seguir clasificando');
