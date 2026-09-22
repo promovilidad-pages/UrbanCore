@@ -116,7 +116,6 @@
   .brush-btn[data-tipo="arterial"].active::before{background:var(--c-arterial)}
   .brush-btn[data-tipo="colectora"].active::before{background:var(--c-colectora)}
   .brush-btn[data-tipo="local"].active::before{background:var(--c-local)}
-  .brush-btn[data-tipo="limpiar"].active::before{background:#aaa}
   .brush-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
   .brush-label{flex:1;display:flex;align-items:baseline;gap:6px}
   .brush-name{font-size:12.5px;font-weight:600}
@@ -254,14 +253,10 @@
       </div>
       <div class="brush-btn" data-tipo="local">
         <div class="brush-swatch" style="background:var(--c-local)"></div>
-        <div class="brush-label"><span class="brush-name">Vía Local</span><span class="brush-range">200–500 m</span></div>
-      </div>
-      <div class="brush-btn" data-tipo="limpiar">
-        <div class="brush-swatch" style="background:#bbb"></div>
-        <div class="brush-label"><span class="brush-name">Limpiar</span><span class="brush-range">sin clasificar</span></div>
+        <div class="brush-label"><span class="brush-name">Vía Local</span><span class="brush-range">200–500 m · por defecto</span></div>
       </div>
     </div>
-    <div class="kbd-hint">Atajos: 1–4 jerarquía · 0 limpiar · P pincel · Ctrl+Z deshacer</div>
+    <div class="kbd-hint">Toda la red arranca como Vía Local: solo pintá expresas, arteriales y colectoras. Para devolver un tramo a local, pintalo con Vía Local.<br>Atajos: 1–4 jerarquía · P pincel · Ctrl+Z deshacer</div>
   </div>
 
   <!-- Sección: Buscar -->
@@ -312,7 +307,6 @@
   <div class="leg-row"><div class="leg-swatch" style="background:var(--c-arterial)"></div>Vía Arterial</div>
   <div class="leg-row"><div class="leg-swatch" style="background:var(--c-colectora)"></div>Vía Colectora</div>
   <div class="leg-row"><div class="leg-swatch" style="background:var(--c-local)"></div>Vía Local</div>
-  <div class="leg-row"><div class="leg-swatch" id="leg-sin" style="background:#1c1c1e"></div>Sin clasificar</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -347,9 +341,9 @@ let basemapActual = 'claro';
 const counts = {expresa:0, arterial:0, colectora:0, local:0};
 
 const TIPO_COLOR = {expresa:'#e2483d',arterial:'#f97316',colectora:'#eab308',local:'#22a55e'};
-const TIPO_WEIGHT = {expresa:4,arterial:3.5,colectora:3,local:2.5};
+const TIPO_WEIGHT = {expresa:4,arterial:3.5,colectora:3,local:1.8}; // local más fina: es el fondo de toda la red
 const RANGO = {expresa:{min:400,max:500},arterial:{min:300,max:500},colectora:{min:300,max:500},local:{min:200,max:500}};
-const LABELS = {expresa:'Expresa',arterial:'Arterial',colectora:'Colectora',local:'Local',limpiar:'Sin clasificar'};
+const LABELS = {expresa:'Expresa',arterial:'Arterial',colectora:'Colectora',local:'Local'};
 const PICK_TOL = 14;       // tolerancia en píxeles para enganchar un tramo con el pincel
 const CELL = 0.0015;       // tamaño de celda del índice espacial, en grados (~165 m)
 
@@ -400,11 +394,7 @@ function setBasemap(k){
     baseTileLayers.push(L.tileLayer(url,{maxZoom:20,maxNativeZoom:cfg.maxNativeZoom,attribution:i===0?cfg.attribution:undefined}).addTo(map));
   });
   ['claro','oscuro','satelite','osm'].forEach(j=>el('bm-'+j).classList.toggle('active',j===k));
-  const cambiaContraste=(basemapActual==='oscuro'||basemapActual==='satelite')!==(k==='oscuro'||k==='satelite');
   basemapActual=k;
-  el('leg-sin').style.background=colorSinClasificar();
-  // Sobre fondo oscuro/satélite la red sin clasificar pasa a gris claro para que se vea
-  if(cambiaContraste) segmentos.forEach(s=>{if(!s.tipo)applyStyle(s);});
 }
 setBasemap('claro');
 ['claro','oscuro','satelite','osm'].forEach(k=>el('bm-'+k).addEventListener('click',()=>setBasemap(k)));
@@ -485,13 +475,12 @@ function downloadText(fn,text){
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([text],{type:'application/json'})),download:fn});
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
-function colorSinClasificar(){return (basemapActual==='oscuro'||basemapActual==='satelite')?'#e5e5ea':'#1c1c1e';}
 
 /* ── ESTILOS ── */
 function styleFor(seg){
   if(resaltadoSet.has(seg.fi)) return {color:'#06b6d4',weight:5,opacity:1};
   const t=seg.tipo;
-  const st=t?{color:TIPO_COLOR[t],weight:TIPO_WEIGHT[t],opacity:0.85}:{color:colorSinClasificar(),weight:1.5,opacity:0.7};
+  const st={color:TIPO_COLOR[t],weight:TIPO_WEIGHT[t],opacity:t==='local'?0.75:0.85};
   if(seg===hoverSeg){st.weight+=2;st.opacity=1;}
   return st;
 }
@@ -571,11 +560,11 @@ function renderRed(){
     for(const p of latlngs){if(p[0]<minLat)minLat=p[0];if(p[0]>maxLat)maxLat=p[0];if(p[1]<minLng)minLng=p[1];if(p[1]>maxLng)maxLng=p[1];}
     let key=segKeyFromLatLngs(latlngs);
     if(usedKeys.has(key)){const n=usedKeys.get(key)+1;usedKeys.set(key,n);key+='#'+n;}else usedKeys.set(key,0);
-    const seg={fi,key,tipo:null,latlngs,layer:null};
+    const seg={fi,key,tipo:'local',latlngs,layer:null}; // todo tramo nace como vía local
     // interactive:false — los clics y el hover los resuelve el índice espacial, no Leaflet
     seg.layer=L.polyline(latlngs,{renderer,interactive:false,...styleFor(seg)});
     seg.layer.addTo(redLayer);
-    segmentos.push(seg); segByFi.set(fi,seg); segByKey.set(key,seg); addToGrid(seg);
+    segmentos.push(seg); segByFi.set(fi,seg); segByKey.set(key,seg); addToGrid(seg); counts.local++;
   });
   redLayer.addTo(map);
   redBounds=segmentos.length?L.latLngBounds([minLat,minLng],[maxLat,maxLng]):null;
@@ -584,15 +573,18 @@ function renderRed(){
 
 /* ── CLASIFICAR ── */
 function setTipo(seg,tipoReal){
-  if(seg.tipo) counts[seg.tipo]--;
+  if(!TIPO_COLOR[tipoReal]) tipoReal='local'; // null/valores viejos → local
+  counts[seg.tipo]--;
   seg.tipo=tipoReal;
-  if(tipoReal){counts[tipoReal]++; seg.layer.bringToFront();} // lo clasificado queda encima de la red gris
+  counts[tipoReal]++;
+  // Las vías principales quedan encima de la red local
+  if(tipoReal==='local') seg.layer.bringToBack(); else seg.layer.bringToFront();
   applyStyle(seg);
 }
 function clasificar(fi,tipo,nuevoBatch=false){
   const seg=segByFi.get(fi);
   if(!seg) return;
-  const tipoReal=tipo==='limpiar'?null:tipo;
+  const tipoReal=TIPO_COLOR[tipo]?tipo:'local';
   if(seg.tipo===tipoReal) return;
   if(nuevoBatch||!currentBatch){
     currentBatch=[];
@@ -611,7 +603,8 @@ function scheduleCounts(){if(!countsRaf)countsRaf=requestAnimationFrame(()=>{cou
 function updateCounts(){
   let total=0;
   ['expresa','arterial','colectora','local'].forEach(t=>{el('cnt-'+t).textContent=counts[t].toLocaleString('es-PE');total+=counts[t];});
-  el('cnt-total').textContent=segmentos.length?`${segmentos.length.toLocaleString('es-PE')} segmentos · ${total.toLocaleString('es-PE')} clasificados`:'—';
+  const principales=total-counts.local;
+  el('cnt-total').textContent=segmentos.length?`${segmentos.length.toLocaleString('es-PE')} segmentos · ${principales.toLocaleString('es-PE')} en vías principales`:'—';
 }
 
 /* ── BÚSQUEDA POR NOMBRE ── */
@@ -747,7 +740,7 @@ document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();deshacer();return;}
   if(e.ctrlKey||e.metaKey||e.altKey) return;
-  const map_={'1':'expresa','2':'arterial','3':'colectora','4':'local','0':'limpiar'};
+  const map_={'1':'expresa','2':'arterial','3':'colectora','4':'local'};
   if(map_[e.key]){setBrush(map_[e.key]);return;}
   if(e.key.toLowerCase()==='p'&&!el('btn-pincel').disabled){setPincel(!pintandoON);return;}
   if(e.key==='Escape'&&pintandoON) setPincel(false);
@@ -782,12 +775,12 @@ el('file-red').addEventListener('change',async e=>{
     if(!feats.length) throw new Error('No se encontraron líneas.');
     // ¿Ya hay clasificación? → ofrecer pasarla a la red nueva (red corregida en RutaCore)
     const clasifPrevia=new Map();
-    segmentos.forEach(sg=>{if(sg.tipo)clasifPrevia.set(sg.key,sg.tipo);});
+    segmentos.forEach(sg=>{if(sg.tipo!=='local')clasifPrevia.set(sg.key,sg.tipo);}); // solo lo pintado; lo demás es local por defecto
     const keysPrevias=new Set(segmentos.map(sg=>sg.key));
     let transferir=false;
     if(clasifPrevia.size){
       hideLoader();
-      transferir=confirm(`Ya tenés ${clasifPrevia.size.toLocaleString('es-PE')} tramos clasificados.\n\n`+
+      transferir=confirm(`Ya tenés ${clasifPrevia.size.toLocaleString('es-PE')} tramos pintados como expresa, arterial o colectora.\n\n`+
         `Aceptar → pasar la clasificación a esta red nueva (los tramos que no cambiaron la conservan).\n`+
         `Cancelar → empezar de cero con la red nueva.`);
     }
@@ -806,7 +799,7 @@ el('file-red').addEventListener('change',async e=>{
       let perdidos=0; clasifPrevia.forEach((t,k)=>{if(!segByKey.has(k))perdidos++;});
       activarUIRed();
       scheduleCounts();
-      const resumen=`${conservados.toLocaleString('es-PE')} clasificados conservados · ${nuevos.toLocaleString('es-PE')} tramos nuevos sin clasificar · ${eliminados.toLocaleString('es-PE')} tramos ya no están en la red`;
+      const resumen=`${conservados.toLocaleString('es-PE')} clasificados conservados · ${nuevos.toLocaleString('es-PE')} tramos nuevos (quedan como locales) · ${eliminados.toLocaleString('es-PE')} tramos ya no están en la red`;
       setInstruction('Red actualizada — '+resumen);
       hideLoader();
       alert('Red actualizada\n\n'+resumen.split(' · ').join('\n')+
@@ -869,9 +862,9 @@ document.addEventListener('click',e=>{if(e.target.id!=='btn-export'&&!el('export
 
 el('export-clasificacion').addEventListener('click',()=>{
   el('export-menu').classList.remove('show');
-  const clasificados=segmentos.filter(s=>s.tipo);
-  if(!clasificados.length){alert('No hay segmentos clasificados.');return;}
-  const features=clasificados.map(seg=>{
+  if(!segmentos.length){alert('No hay red cargada.');return;}
+  // Se exporta toda la red: lo no pintado sale como vía local
+  const features=segmentos.map(seg=>{
     const f=redFeatures[seg.fi];
     return{type:'Feature',properties:{...f.properties,jerarquia:seg.tipo,...RANGO[seg.tipo]},geometry:f.geometry};
   });
@@ -883,7 +876,7 @@ el('export-clasificacion').addEventListener('click',()=>{
 });
 
 /* ── SESIÓN ──
-   v2: la clasificación se guarda por ID de geometría (solo los tramos clasificados).
+   v2: la clasificación se guarda por ID de geometría (solo expresa/arterial/colectora; el resto es local).
    Las sesiones v1 (por posición) siguen abriendo igual. */
 el('export-session').addEventListener('click',()=>{
   el('export-menu').classList.remove('show');
@@ -892,7 +885,7 @@ el('export-session').addEventListener('click',()=>{
     version:2,tipo:'plancore-sesion-clasificador',
     guardadoEn:new Date().toISOString(),
     redFeatures,
-    clasificacionIds:segmentos.filter(s=>s.tipo).map(s=>({id:s.key,tipo:s.tipo}))
+    clasificacionIds:segmentos.filter(s=>s.tipo!=='local').map(s=>({id:s.key,tipo:s.tipo})) // lo no guardado vuelve como local
   }));
 });
 el('btn-load-session').addEventListener('click',()=>el('file-session').click());
