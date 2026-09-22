@@ -237,7 +237,8 @@ input[type=file]{display:none}
     <div class="export-wrap">
       <button class="btn" id="btn-export" disabled>Exportar ▾</button>
       <div class="export-menu" id="export-menu">
-        <button id="export-geojson">Exportar rutas GeoJSON<span class="menu-sub">.geojson — compatible con ClasificadorVial</span></button>
+        <button id="export-geojson"><i class="fa-solid fa-route"></i> Exportar rutas GeoJSON<span class="menu-sub">.geojson — compatible con ClasificadorVial</span></button>
+        <button id="export-red"><i class="fa-solid fa-road"></i> Exportar red vial GeoJSON<span class="menu-sub">.geojson — red completa con tus ediciones (QGIS)</span></button>
         <div class="menu-divider"></div>
         <button id="export-session"><i class="fa-solid fa-floppy-disk"></i> Guardar sesión<span class="menu-sub">.json — red + todas las rutas</span></button>
       </div>
@@ -1001,7 +1002,7 @@ el('file-red').addEventListener('change',async e=>{
     el('btn-trace').disabled=false;el('btn-delete-seg').disabled=true;
     el('btn-undo').disabled=true;el('btn-redo').disabled=true;el('btn-ruler').disabled=false;
     el('btn-edit-network').disabled=false;
-    el('btn-export').disabled=!routes.length;
+    el('btn-export').disabled=!redFeatures.length;
     el('new-route-name').disabled=false;el('btn-add-route').disabled=false;
     setInstruction('Red cargada — creá una ruta en el panel y empezá a trazar');
     renderRoutesPanel();
@@ -1160,6 +1161,17 @@ el('export-geojson').addEventListener('click',()=>{
   downloadText('rutacore-export.geojson',JSON.stringify({type:'FeatureCollection',properties:{tipo:'rutacore-export',exportadoEn:new Date().toISOString()},features},null,2));
 });
 
+el('export-red').addEventListener('click',()=>{
+  el('export-menu').classList.remove('show');
+  if(!redFeatures.length){alert('Cargá la red vial primero.');return;}
+  // Los tramos dibujados en el editor no traen atributos: se marcan para identificarlos en QGIS
+  const features=redFeatures.map(f=>{
+    const props=f.properties&&Object.keys(f.properties).length?f.properties:{origen:'dibujado_rutacore'};
+    return {type:'Feature',properties:props,geometry:f.geometry};
+  });
+  downloadText('rutacore-red-vial.geojson',JSON.stringify({type:'FeatureCollection',features}));
+});
+
 /* ── SESIÓN ── */
 el('export-session').addEventListener('click',()=>{
   el('export-menu').classList.remove('show');
@@ -1234,7 +1246,7 @@ el('file-session').addEventListener('change',async e=>{
     el('btn-trace').disabled=false;el('btn-delete-seg').disabled=true;
     el('btn-undo').disabled=true;el('btn-redo').disabled=true;el('btn-ruler').disabled=false;
     el('btn-edit-network').disabled=false;
-    el('btn-export').disabled=!routes.length;
+    el('btn-export').disabled=!redFeatures.length;
     el('new-route-name').disabled=false;el('btn-add-route').disabled=false;
     if(routes.length)activeRouteId=routes[0].id;
     renderRoutesPanel();updateInfoBar();
