@@ -212,14 +212,14 @@
       <button class="btn" id="btn-undo" disabled title="Deshacer último cambio (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i> Deshacer</button>
       <button class="btn" id="btn-toggle-rutas" disabled title="Mostrar/ocultar rutas"><i class="fa-solid fa-eye"></i> Rutas</button>
     </div>
+    <input type="file" id="file-session" accept=".json" style="display:none">
+    <button class="btn" id="btn-load-session" title="Cargar una sesión guardada"><i class="fa-solid fa-folder-open"></i> Sesión</button>
     <div class="export-wrap">
       <button class="btn" id="btn-export" disabled>Exportar ▾</button>
       <div class="export-menu" id="export-menu">
         <button id="export-clasificacion"><span><i class="fa-solid fa-layer-group"></i>Exportar clasificación</span><span class="menu-sub">.geojson — red clasificada para ParaderosCore</span></button>
         <div class="menu-divider"></div>
         <button id="export-session"><span><i class="fa-solid fa-floppy-disk"></i>Guardar sesión</span><span class="menu-sub">.json — red, rutas y clasificación</span></button>
-        <input type="file" id="file-session" accept=".json" style="display:none">
-        <button id="import-session"><span><i class="fa-solid fa-folder-open"></i>Cargar sesión</span><span class="menu-sub">.json — restaurar sesión guardada</span></button>
       </div>
     </div>
   </div>
@@ -849,7 +849,7 @@ el('export-session').addEventListener('click',()=>{
     clasificacion:segmentos.map(s=>({fi:s.fi,tipo:s.tipo}))
   }));
 });
-el('import-session').addEventListener('click',()=>{el('export-menu').classList.remove('show');el('file-session').click();});
+el('btn-load-session').addEventListener('click',()=>el('file-session').click());
 el('file-session').addEventListener('change',async e=>{
   const file=e.target.files[0]; if(!file) return;
   showLoader('Restaurando sesión…'); await nextFrame();
