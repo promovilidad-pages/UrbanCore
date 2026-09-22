@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clasificador Vial — ParaderosCore</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <style>
   :root {
     --brand:#007aff; --brand-dark:#005ec4;
@@ -98,9 +99,9 @@
   .panel-section+.panel-section{border-top:1px solid rgba(0,0,0,.06)}
   .panel-section-header{display:flex;align-items:center;gap:7px;margin-bottom:10px}
   .panel-section-icon{width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;box-shadow:0 1px 0 rgba(255,255,255,.5) inset}
-  .panel-section-icon.blue{background:rgba(0,122,255,.16)}
-  .panel-section-icon.purple{background:rgba(150,90,255,.18)}
-  .panel-section-icon.green{background:rgba(20,180,110,.18)}
+  .panel-section-icon.blue{background:rgba(0,122,255,.16);color:#007aff}
+  .panel-section-icon.purple{background:rgba(150,90,255,.18);color:#7c3aed}
+  .panel-section-icon.green{background:rgba(20,180,110,.18);color:#0a8a4f}
   .panel-section-title{font-size:11.5px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.06em}
 
   .hint{font-size:11.5px;color:var(--text-2);line-height:1.55}
@@ -172,7 +173,7 @@
   .export-menu .menu-divider{height:1px;background:rgba(0,0,0,.08);margin:5px 4px}
 
   /* ── BASEMAP CTRL ── */
-  #basemap-ctrl{position:fixed;left:12px;bottom:24px;z-index:850;display:flex;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:999px;box-shadow:var(--glass-shadow-sm);padding:3px;border:1px solid var(--glass-border)}
+  #basemap-ctrl{position:fixed;left:calc(var(--panel-w) + 26px);bottom:24px;z-index:850;display:flex;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:999px;box-shadow:var(--glass-shadow-sm);padding:3px;border:1px solid var(--glass-border)}
   #basemap-ctrl button{border:none;background:transparent;font-size:11.5px;font-weight:500;color:var(--text-2);padding:5px 12px;border-radius:999px;cursor:pointer;transition:.15s ease}
   #basemap-ctrl button.active{background:linear-gradient(180deg, rgba(64,150,255,.95), rgba(0,110,235,.95));color:#fff;box-shadow:0 2px 8px rgba(0,122,255,.4)}
 
@@ -184,6 +185,10 @@
 
   /* ── Leaflet controls glass touch ── */
   .leaflet-control-attribution{background:rgba(255,255,255,.5) !important;backdrop-filter:blur(6px);border-radius:8px 0 0 0}
+  .export-menu button i{margin-right:6px;width:14px;text-align:center;color:var(--text-2)}
+  .btn i{font-size:12px}
+  .count-total{font-variant-numeric:tabular-nums}
+  .kbd-hint{font-size:10.5px;color:var(--text-2);margin-top:8px;opacity:.85}
 </style>
 </head>
 <body>
@@ -191,7 +196,7 @@
 <header id="app-header">
   <div class="header-left">
     <div class="breadcrumb">
-      <a href="paraderoscore.html">‹ ParaderosCore</a>
+      <a href="paraderoscore.html"><i class="fa-solid fa-chevron-left"></i> ParaderosCore</a>
     </div>
     <div class="header-divider"></div>
     <div class="logo">Clasificador <span>Vial</span></div>
@@ -199,22 +204,22 @@
   <div class="header-right">
     <span class="status-pill" id="status-pill">Sin red vial</span>
     <input type="file" id="file-red" accept=".zip,.geojson,.json,.kml,.kmz">
-    <button class="btn primary" id="btn-load-red">🗺 Cargar red</button>
+    <button class="btn primary" id="btn-load-red"><i class="fa-solid fa-map"></i> Cargar red</button>
     <input type="file" id="file-rutas" accept=".zip,.geojson,.json,.kml,.kmz">
-    <button class="btn" id="btn-load-rutas" disabled>🚌 Cargar rutas</button>
+    <button class="btn" id="btn-load-rutas" disabled><i class="fa-solid fa-bus"></i> Cargar rutas</button>
     <div class="btn-group">
-      <button class="btn" id="btn-pincel" disabled title="Activar pincel de clasificación">🖌 Pincel</button>
-      <button class="btn" id="btn-undo" disabled title="Deshacer último cambio">↩ Deshacer</button>
-      <button class="btn" id="btn-toggle-rutas" disabled title="Mostrar/ocultar rutas">👁 Rutas</button>
+      <button class="btn" id="btn-pincel" disabled title="Activar pincel de clasificación"><i class="fa-solid fa-paintbrush"></i> Pincel</button>
+      <button class="btn" id="btn-undo" disabled title="Deshacer último cambio (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i> Deshacer</button>
+      <button class="btn" id="btn-toggle-rutas" disabled title="Mostrar/ocultar rutas"><i class="fa-solid fa-eye"></i> Rutas</button>
     </div>
     <div class="export-wrap">
       <button class="btn" id="btn-export" disabled>Exportar ▾</button>
       <div class="export-menu" id="export-menu">
-        <button id="export-clasificacion">Exportar clasificación<span class="menu-sub">.geojson — red clasificada para ParaderosCore</span></button>
+        <button id="export-clasificacion"><span><i class="fa-solid fa-layer-group"></i>Exportar clasificación</span><span class="menu-sub">.geojson — red clasificada para ParaderosCore</span></button>
         <div class="menu-divider"></div>
-        <button id="export-session">💾 Guardar sesión<span class="menu-sub">.json — red, rutas y clasificación</span></button>
+        <button id="export-session"><span><i class="fa-solid fa-floppy-disk"></i>Guardar sesión</span><span class="menu-sub">.json — red, rutas y clasificación</span></button>
         <input type="file" id="file-session" accept=".json" style="display:none">
-        <button id="import-session">📂 Cargar sesión<span class="menu-sub">.json — restaurar sesión guardada</span></button>
+        <button id="import-session"><span><i class="fa-solid fa-folder-open"></i>Cargar sesión</span><span class="menu-sub">.json — restaurar sesión guardada</span></button>
       </div>
     </div>
   </div>
@@ -230,10 +235,10 @@
   <!-- Sección: Pincel -->
   <div class="panel-section">
     <div class="panel-section-header">
-      <div class="panel-section-icon blue">🖌</div>
+      <div class="panel-section-icon blue"><i class="fa-solid fa-paintbrush"></i></div>
       <span class="panel-section-title">Pincel de clasificación</span>
     </div>
-    <div class="hint" id="hint-pincel">Activá el pincel y clasificá haciendo clic o arrastrando sobre la red.</div>
+    <div class="hint" id="hint-pincel">Activá el pincel y clasificá haciendo clic o arrastrando sobre la red. Arrastrando desde una zona vacía movés el mapa.</div>
     <div class="brush-grid" style="margin-top:10px">
       <div class="brush-btn" data-tipo="expresa">
         <div class="brush-swatch" style="background:var(--c-expresa)"></div>
@@ -256,12 +261,13 @@
         <div class="brush-label"><span class="brush-name">Limpiar</span><span class="brush-range">sin clasificar</span></div>
       </div>
     </div>
+    <div class="kbd-hint">Atajos: 1–4 jerarquía · 0 limpiar · P pincel · Ctrl+Z deshacer</div>
   </div>
 
   <!-- Sección: Buscar -->
   <div class="panel-section">
     <div class="panel-section-header">
-      <div class="panel-section-icon purple">🔍</div>
+      <div class="panel-section-icon purple"><i class="fa-solid fa-magnifying-glass"></i></div>
       <span class="panel-section-title">Buscar por nombre de vía</span>
     </div>
     <div class="search-box">
@@ -276,7 +282,7 @@
   <!-- Sección: Resumen -->
   <div class="panel-section">
     <div class="panel-section-header">
-      <div class="panel-section-icon green">📊</div>
+      <div class="panel-section-icon green"><i class="fa-solid fa-chart-simple"></i></div>
       <span class="panel-section-title">Resumen</span>
     </div>
     <div class="count-grid">
@@ -306,7 +312,7 @@
   <div class="leg-row"><div class="leg-swatch" style="background:var(--c-arterial)"></div>Vía Arterial</div>
   <div class="leg-row"><div class="leg-swatch" style="background:var(--c-colectora)"></div>Vía Colectora</div>
   <div class="leg-row"><div class="leg-swatch" style="background:var(--c-local)"></div>Vía Local</div>
-  <div class="leg-row"><div class="leg-swatch" style="background:#1c1c1e"></div>Sin clasificar</div>
+  <div class="leg-row"><div class="leg-swatch" id="leg-sin" style="background:#1c1c1e"></div>Sin clasificar</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -315,47 +321,97 @@
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/togeojson@0.16.0/togeojson.js"></script>
 <script>
+'use strict';
 const el = id => document.getElementById(id);
 
-/* ---- Mapa ---- */
-const TILES = {
-  claro:   'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  oscuro:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  satelite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  osm:     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-};
-const map = L.map('map',{zoomControl:false}).setView([-9.19,-75.015],6);
-let baseTile = L.tileLayer(TILES.claro,{maxZoom:19,attribution:'© OpenStreetMap © CARTO'}).addTo(map);
-['claro','oscuro','satelite','osm'].forEach(k=>{
-  el('bm-'+k).addEventListener('click',()=>{
-    map.removeLayer(baseTile);
-    baseTile=L.tileLayer(TILES[k],{maxZoom:19}).addTo(map);
-    ['claro','oscuro','satelite','osm'].forEach(j=>el('bm-'+j).classList.toggle('active',j===k));
-  });
-});
-
-/* ---- UTM defs ---- */
-proj4.defs('EPSG:32717','+proj=utm +zone=17 +south +datum=WGS84 +units=m +no_defs');
-proj4.defs('EPSG:32718','+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs');
-proj4.defs('EPSG:32719','+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs');
-
-/* ---- Estado ---- */
-let redFeatures = [];   // GeoJSON features de la red (ya en WGS84)
-let redLayer = null;    // L.geoJSON de la red pintable
+/* ── ESTADO ── (declarado antes del mapa porque setBasemap lo usa) */
+let redFeatures = [];      // features GeoJSON de la red (ya en WGS84)
+let redLayer = null;       // layerGroup con todas las polilíneas (canvas)
 let rutasLayer = null;
 let rutasVisible = true;
-let segmentos = [];     // [{fi, tipo, layer}] — una entrada por feature
+let segmentos = [];        // [{fi, tipo, latlngs, layer}]
+let segByFi = new Map();   // fi → segmento, acceso O(1) (antes: segmentos.find en cada operación)
+let grid = new Map();      // índice espacial: celda → [segmentos], para ubicar el tramo bajo el mouse sin recorrer toda la red
+let redBounds = null;
 let brushTipo = 'arterial';
 let pintandoON = false;
 let isDragging = false;
+let lastPaintPt = null;
 let undoStack = [];
 let currentBatch = null;
+let hoverSeg = null;
+let resaltados = [];       // fi de los tramos resaltados por la búsqueda
+let resaltadoSet = new Set();
+let basemapActual = 'claro';
+const counts = {expresa:0, arterial:0, colectora:0, local:0};
 
-const TIPO_COLOR = {expresa:'#e2483d',arterial:'#f97316',colectora:'#eab308',local:'#22a55e',limpiar:'#1c1c1e'};
-const TIPO_WEIGHT = {expresa:4,arterial:3.5,colectora:3,local:2.5,limpiar:1.5};
+const TIPO_COLOR = {expresa:'#e2483d',arterial:'#f97316',colectora:'#eab308',local:'#22a55e'};
+const TIPO_WEIGHT = {expresa:4,arterial:3.5,colectora:3,local:2.5};
 const RANGO = {expresa:{min:400,max:500},arterial:{min:300,max:500},colectora:{min:300,max:500},local:{min:200,max:500}};
+const LABELS = {expresa:'Expresa',arterial:'Arterial',colectora:'Colectora',local:'Local',limpiar:'Sin clasificar'};
+const PICK_TOL = 14;       // tolerancia en píxeles para enganchar un tramo con el pincel
+const CELL = 0.0015;       // tamaño de celda del índice espacial, en grados (~165 m)
 
-/* ---- readGeoFile + reproyección ---- */
+/* ── MAPA ── (mismos 4 mapas base que RutaCore)
+   CARTO ahora exige API key y tile.openstreetmap.org bloquea a las apps,
+   por eso Claro/Oscuro/Satélite van con ArcGIS (sin key) y OSM con MapTiler. */
+const MAPTILER_KEY='1bn01ccw92pBVsN2xVIz';
+const TILES={
+  claro:{
+    urls:[
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
+    ],
+    maxNativeZoom:16,
+    attribution:'© OpenStreetMap contributors, © Esri'
+  },
+  oscuro:{
+    urls:[
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
+    ],
+    maxNativeZoom:16,
+    attribution:'© OpenStreetMap contributors, © Esri'
+  },
+  satelite:{
+    urls:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+    maxNativeZoom:19,
+    attribution:'© OpenStreetMap contributors, © Esri'
+  },
+  osm:{
+    urls:[`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`],
+    maxNativeZoom:20,
+    attribution:'© OpenStreetMap contributors, © MapTiler'
+  }
+};
+const map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([-9.19,-75.015],6);
+// Rutas en un pane debajo de la red: se ven como una franja morada y lo que pintás queda siempre encima
+map.createPane('rutasPane');
+map.getPane('rutasPane').style.zIndex=390;
+map.getPane('rutasPane').style.pointerEvents='none';
+
+let baseTileLayers=[];
+function setBasemap(k){
+  const cfg=TILES[k];
+  baseTileLayers.forEach(l=>map.removeLayer(l));
+  baseTileLayers=[];
+  cfg.urls.forEach((url,i)=>{
+    baseTileLayers.push(L.tileLayer(url,{maxZoom:20,maxNativeZoom:cfg.maxNativeZoom,attribution:i===0?cfg.attribution:undefined}).addTo(map));
+  });
+  ['claro','oscuro','satelite','osm'].forEach(j=>el('bm-'+j).classList.toggle('active',j===k));
+  const cambiaContraste=(basemapActual==='oscuro'||basemapActual==='satelite')!==(k==='oscuro'||k==='satelite');
+  basemapActual=k;
+  el('leg-sin').style.background=colorSinClasificar();
+  // Sobre fondo oscuro/satélite la red sin clasificar pasa a gris claro para que se vea
+  if(cambiaContraste) segmentos.forEach(s=>{if(!s.tipo)applyStyle(s);});
+}
+setBasemap('claro');
+['claro','oscuro','satelite','osm'].forEach(k=>el('bm-'+k).addEventListener('click',()=>setBasemap(k)));
+
+/* ── UTM → WGS84 ── */
+proj4.defs('EPSG:32717','+proj=utm +zone=17 +south +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:32718','+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:32719','+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs');
 function findFirstCoord(geom){
   if(!geom) return null;
   let c=geom.coordinates; while(Array.isArray(c)&&Array.isArray(c[0]))c=c[0];
@@ -401,294 +457,371 @@ function ensureLonLat(gj){
 }
 async function readGeoFile(file){
   const name=file.name.toLowerCase(); let gj;
-  if(name.endsWith('.zip')){const buf=await file.arrayBuffer();const out=await shp(buf);gj=out.type?out:out[Object.keys(out)[0]];}
+  if(name.endsWith('.zip')){
+    const out=await shp(await file.arrayBuffer());
+    // Un ZIP con varios shapefiles devuelve un arreglo: se juntan todas las capas
+    gj=Array.isArray(out)?{type:'FeatureCollection',features:out.flatMap(g=>g.features||[])}:out;
+  }
   else if(name.endsWith('.geojson')||name.endsWith('.json')){gj=JSON.parse(await file.text());}
-  else if(name.endsWith('.kml')){const xml=new DOMParser().parseFromString(await file.text(),'text/xml');gj=toGeoJSON.kml(xml);}
-  else if(name.endsWith('.kmz')){const zip=await JSZip.loadAsync(await file.arrayBuffer());const kmlEntry=Object.values(zip.files).find(f=>f.name.toLowerCase().endsWith('.kml'));if(!kmlEntry)throw new Error('KMZ sin KML.');const xml=new DOMParser().parseFromString(await kmlEntry.async('text'),'text/xml');gj=toGeoJSON.kml(xml);}
+  else if(name.endsWith('.kml')){gj=toGeoJSON.kml(new DOMParser().parseFromString(await file.text(),'text/xml'));}
+  else if(name.endsWith('.kmz')){
+    const zip=await JSZip.loadAsync(await file.arrayBuffer());
+    const kmlEntry=Object.values(zip.files).find(f=>f.name.toLowerCase().endsWith('.kml'));
+    if(!kmlEntry)throw new Error('KMZ sin KML.');
+    gj=toGeoJSON.kml(new DOMParser().parseFromString(await kmlEntry.async('text'),'text/xml'));
+  }
   else throw new Error('Formato no soportado.');
+  if(!gj) throw new Error('Formato no reconocido.');
   return ensureLonLat(gj);
 }
 
-/* ---- Renderizar red ---- */
+/* ── UTILIDADES ── */
+function showLoader(t){el('loader-text').textContent=t;el('loader').classList.add('show');}
+function hideLoader(){el('loader').classList.remove('show');}
+const nextFrame=()=>new Promise(r=>setTimeout(r,30)); // deja que el loader se pinte antes de un proceso pesado
+function setInstruction(t){el('instruction-text').textContent=t;}
+function downloadText(fn,text){
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([text],{type:'application/json'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function colorSinClasificar(){return (basemapActual==='oscuro'||basemapActual==='satelite')?'#e5e5ea':'#1c1c1e';}
+
+/* ── ESTILOS ── */
+function styleFor(seg){
+  if(resaltadoSet.has(seg.fi)) return {color:'#06b6d4',weight:5,opacity:1};
+  const t=seg.tipo;
+  const st=t?{color:TIPO_COLOR[t],weight:TIPO_WEIGHT[t],opacity:0.85}:{color:colorSinClasificar(),weight:1.5,opacity:0.7};
+  if(seg===hoverSeg){st.weight+=2;st.opacity=1;}
+  return st;
+}
+function applyStyle(seg){if(seg.layer)seg.layer.setStyle(styleFor(seg));}
+
+/* ── ÍNDICE ESPACIAL ──
+   La red se reparte en una grilla de celdas. Para saber qué tramo está bajo el
+   mouse solo se revisan los tramos de las celdas cercanas (unas decenas), en vez
+   de proyectar los ~48 000 tramos de la red en cada movimiento como antes. */
+function addToGrid(seg){
+  const ll=seg.latlngs;
+  for(let i=0;i<ll.length-1;i++){
+    const a=ll[i],b=ll[i+1];
+    const x0=Math.floor(Math.min(a[1],b[1])/CELL),x1=Math.floor(Math.max(a[1],b[1])/CELL);
+    const y0=Math.floor(Math.min(a[0],b[0])/CELL),y1=Math.floor(Math.max(a[0],b[0])/CELL);
+    for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+      const k=x*100000+y;
+      let arr=grid.get(k); if(!arr){arr=[];grid.set(k,arr);}
+      if(arr[arr.length-1]!==seg) arr.push(seg);
+    }
+  }
+}
+function nearestSeg(pt,tol){
+  if(!segmentos.length) return null;
+  const c1=map.containerPointToLatLng([pt.x-tol,pt.y-tol]);
+  const c2=map.containerPointToLatLng([pt.x+tol,pt.y+tol]);
+  const x0=Math.floor(Math.min(c1.lng,c2.lng)/CELL),x1=Math.floor(Math.max(c1.lng,c2.lng)/CELL);
+  const y0=Math.floor(Math.min(c1.lat,c2.lat)/CELL),y1=Math.floor(Math.max(c1.lat,c2.lat)/CELL);
+  if((x1-x0+1)*(y1-y0+1)>900) return null; // zoom muy alejado: no tiene sentido pintar a esa escala
+  const vistos=new Set(); let best=null,minD=tol;
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+    const arr=grid.get(x*100000+y); if(!arr) continue;
+    for(const seg of arr){
+      if(vistos.has(seg)) continue; vistos.add(seg);
+      const ll=seg.latlngs;
+      let a=map.latLngToContainerPoint(ll[0]);
+      for(let i=1;i<ll.length;i++){
+        const b=map.latLngToContainerPoint(ll[i]);
+        const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
+        const t=len2===0?0:Math.max(0,Math.min(1,((pt.x-a.x)*dx+(pt.y-a.y)*dy)/len2));
+        const d=Math.hypot(pt.x-a.x-t*dx,pt.y-a.y-t*dy);
+        if(d<minD){minD=d;best=seg;}
+        a=b;
+      }
+    }
+  }
+  return best;
+}
+
+/* ── RENDER RED ── canvas en vez de SVG: un solo lienzo en lugar de 48 000 elementos en la página */
 function renderRed(){
   if(redLayer){map.removeLayer(redLayer);redLayer=null;}
-  segmentos=[];
+  segmentos=[]; segByFi=new Map(); grid=new Map();
+  hoverSeg=null; resaltados=[]; resaltadoSet.clear();
+  Object.keys(counts).forEach(k=>counts[k]=0);
+  const renderer=L.canvas({padding:0.5});
   redLayer=L.layerGroup();
+  let minLat=Infinity,minLng=Infinity,maxLat=-Infinity,maxLng=-Infinity;
   redFeatures.forEach((f,fi)=>{
     if(!f.geometry) return;
     let coords=null;
     if(f.geometry.type==='LineString') coords=f.geometry.coordinates;
     else if(f.geometry.type==='MultiLineString') coords=f.geometry.coordinates.reduce((a,b)=>b.length>a.length?b:a,[]);
     if(!coords||coords.length<2) return;
-    const seg={fi, tipo:null, layer:null};
-    const line=L.polyline(coords.map(c=>[c[1],c[0]]),{
-      color:'#1c1c1e', weight:1.5, opacity:0.7, interactive:true
-    });
-    line.on('click',e=>{
-      if(!pintandoON) return;
-      L.DomEvent.stopPropagation(e);
-      clasificar(fi, brushTipo, true);
-    });
-    line.on('mouseover',()=>{ if(pintandoON) line.setStyle({weight:(TIPO_WEIGHT[seg.tipo]||1.5)+2,opacity:1}); });
-    line.on('mouseout', ()=>{ if(pintandoON) line.setStyle({weight:TIPO_WEIGHT[seg.tipo]||1.5,opacity:0.7}); });
-    seg.layer=line;
-    line.addTo(redLayer);
-    segmentos.push(seg);
+    const latlngs=coords.map(c=>[c[1],c[0]]);
+    for(const p of latlngs){if(p[0]<minLat)minLat=p[0];if(p[0]>maxLat)maxLat=p[0];if(p[1]<minLng)minLng=p[1];if(p[1]>maxLng)maxLng=p[1];}
+    const seg={fi,tipo:null,latlngs,layer:null};
+    // interactive:false — los clics y el hover los resuelve el índice espacial, no Leaflet
+    seg.layer=L.polyline(latlngs,{renderer,interactive:false,...styleFor(seg)});
+    seg.layer.addTo(redLayer);
+    segmentos.push(seg); segByFi.set(fi,seg); addToGrid(seg);
   });
   redLayer.addTo(map);
-  updateCounts();
+  redBounds=segmentos.length?L.latLngBounds([minLat,minLng],[maxLat,maxLng]):null;
+  scheduleCounts();
 }
 
-function clasificar(fi, tipo, nuevoBatch=false){
-  const seg=segmentos.find(s=>s.fi===fi);
+/* ── CLASIFICAR ── */
+function setTipo(seg,tipoReal){
+  if(seg.tipo) counts[seg.tipo]--;
+  seg.tipo=tipoReal;
+  if(tipoReal){counts[tipoReal]++; seg.layer.bringToFront();} // lo clasificado queda encima de la red gris
+  applyStyle(seg);
+}
+function clasificar(fi,tipo,nuevoBatch=false){
+  const seg=segByFi.get(fi);
   if(!seg) return;
-  const tipoReal = tipo==='limpiar'?null:tipo;
+  const tipoReal=tipo==='limpiar'?null:tipo;
   if(seg.tipo===tipoReal) return;
   if(nuevoBatch||!currentBatch){
     currentBatch=[];
     undoStack.push(currentBatch);
     if(undoStack.length>50) undoStack.shift();
   }
-  currentBatch.push({fi, anterior:seg.tipo});
-  seg.tipo=tipoReal;
-  const color=tipoReal?TIPO_COLOR[tipoReal]:'#1c1c1e';
-  const weight=tipoReal?TIPO_WEIGHT[tipoReal]:1.5;
-  if(seg.layer) seg.layer.setStyle({color,weight,opacity:0.85});
+  currentBatch.push({fi,anterior:seg.tipo});
+  setTipo(seg,tipoReal);
   el('btn-undo').disabled=false;
-  updateCounts();
+  scheduleCounts();
 }
 
+// Los contadores se actualizan una vez por cuadro, no en cada tramo pintado
+let countsRaf=0;
+function scheduleCounts(){if(!countsRaf)countsRaf=requestAnimationFrame(()=>{countsRaf=0;updateCounts();});}
 function updateCounts(){
-  ['expresa','arterial','colectora','local'].forEach(t=>{
-    el('cnt-'+t).textContent=segmentos.filter(s=>s.tipo===t).length;
-  });
-  const total=segmentos.filter(s=>s.tipo).length;
-  el('cnt-total').textContent=`${segmentos.length} segmentos · ${total} clasificados`;
+  let total=0;
+  ['expresa','arterial','colectora','local'].forEach(t=>{el('cnt-'+t).textContent=counts[t].toLocaleString('es-PE');total+=counts[t];});
+  el('cnt-total').textContent=segmentos.length?`${segmentos.length.toLocaleString('es-PE')} segmentos · ${total.toLocaleString('es-PE')} clasificados`:'—';
 }
 
-/* ---- Búsqueda por nombre ---- */
-let resaltados = []; // índices fi de segmentos resaltados actualmente
-
+/* ── BÚSQUEDA POR NOMBRE ── */
+let nameIndex=new Map();
 function buildNameIndex(){
-  // Construir índice name → [fi, fi, ...]
-  const idx = new Map();
+  const idx=new Map();
   redFeatures.forEach((f,fi)=>{
-    const name = (f.properties?.name||'').trim();
+    if(!segByFi.has(fi)) return;
+    const name=(f.properties?.name||'').trim();
     if(!name) return;
-    const key = name.toLowerCase();
-    if(!idx.has(key)) idx.set(key,[]);
-    idx.get(key).push(fi);
+    const key=name.toLowerCase();
+    if(!idx.has(key)) idx.set(key,{name,fis:[]});
+    idx.get(key).fis.push(fi);
   });
   return idx;
 }
-let nameIndex = new Map();
-
+function hintDiv(txt){const d=document.createElement('div');d.className='hint';d.textContent=txt;return d;}
 function buscar(query){
-  const q = query.toLowerCase().trim();
-  const container = el('search-results');
-  // Quitar resaltado anterior
+  const q=query.toLowerCase().trim();
+  const container=el('search-results');
   limpiarResaltado();
-  if(!q){ container.innerHTML='<div class="hint">Escribí el nombre de una vía.</div>'; el('btn-clasificar-todos').disabled=true; return; }
-
-  // Buscar coincidencias parciales
-  const resultados = [];
-  nameIndex.forEach((fis, name)=>{
-    if(name.includes(q)) resultados.push({name, fis});
-  });
-  resultados.sort((a,b)=>a.name.localeCompare(b.name));
-
-  if(!resultados.length){
-    container.innerHTML='<div class="hint">Sin resultados para "'+query+'".</div>';
-    el('btn-clasificar-todos').disabled=true;
-    return;
-  }
-
   container.innerHTML='';
+  if(!q){container.appendChild(hintDiv('Escribí el nombre de una vía.'));el('btn-clasificar-todos').disabled=true;return;}
+  const resultados=[];
+  nameIndex.forEach((v,key)=>{if(key.includes(q))resultados.push(v);});
+  resultados.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  if(!resultados.length){container.appendChild(hintDiv(`Sin resultados para "${query}".`));el('btn-clasificar-todos').disabled=true;return;}
   resultados.slice(0,20).forEach(({name,fis})=>{
     const row=document.createElement('div');
     row.className='search-result-row';
-    row.innerHTML=`<span class="search-result-name">${name}</span><span class="search-result-count">${fis.length} tramo${fis.length>1?'s':''}</span>`;
+    const n=document.createElement('span');n.className='search-result-name';n.textContent=name;
+    const c=document.createElement('span');c.className='search-result-count';c.textContent=`${fis.length} tramo${fis.length>1?'s':''}`;
+    row.append(n,c);
     row.addEventListener('click',()=>{
-      // Resaltar estos segmentos en el mapa
       limpiarResaltado();
-      resaltados=fis;
       resaltarSegmentos(fis);
       row.classList.add('resaltado');
       el('btn-clasificar-todos').disabled=false;
-      // Hacer zoom a los segmentos resaltados
-      const layers=fis.map(fi=>segmentos.find(s=>s.fi===fi)?.layer).filter(Boolean);
-      if(layers.length) map.fitBounds(L.featureGroup(layers).getBounds(),{padding:[60,60],maxZoom:17});
+      const b=L.latLngBounds([]);
+      fis.forEach(fi=>{const s=segByFi.get(fi);if(s)s.latlngs.forEach(p=>b.extend(p));});
+      if(b.isValid()) map.fitBounds(b,{padding:[60,60],maxZoom:17});
     });
     container.appendChild(row);
   });
-  if(resultados.length>20){
-    const more=document.createElement('div');
-    more.className='hint';
-    more.style.padding='4px 2px';
-    more.textContent=`... y ${resultados.length-20} más. Refiná la búsqueda.`;
-    container.appendChild(more);
-  }
+  if(resultados.length>20){const more=hintDiv(`... y ${resultados.length-20} más. Refiná la búsqueda.`);more.style.padding='4px 2px';container.appendChild(more);}
 }
-
 function resaltarSegmentos(fis){
-  fis.forEach(fi=>{
-    const seg=segmentos.find(s=>s.fi===fi);
-    if(!seg?.layer) return;
-    seg.layer.setStyle({color:'#06b6d4',weight:5,opacity:1});
-  });
+  resaltados=fis.slice(); resaltadoSet=new Set(resaltados);
+  resaltados.forEach(fi=>{const s=segByFi.get(fi);if(s){applyStyle(s);s.layer.bringToFront();}});
 }
-
 function limpiarResaltado(){
-  resaltados.forEach(fi=>{
-    const seg=segmentos.find(s=>s.fi===fi);
-    if(!seg?.layer) return;
-    const color=seg.tipo?TIPO_COLOR[seg.tipo]:'#1c1c1e';
-    const weight=seg.tipo?TIPO_WEIGHT[seg.tipo]:1.5;
-    seg.layer.setStyle({color,weight,opacity:0.85});
-  });
-  resaltados=[];
-  // Quitar resaltado visual de rows
+  const antes=resaltados;
+  resaltados=[]; resaltadoSet=new Set();
+  antes.forEach(fi=>{const s=segByFi.get(fi);if(s)applyStyle(s);});
   document.querySelectorAll('.search-result-row.resaltado').forEach(r=>r.classList.remove('resaltado'));
 }
-
-el('search-input').addEventListener('input', e=>buscar(e.target.value));
-
+let searchTimer=0;
+el('search-input').addEventListener('input',e=>{clearTimeout(searchTimer);const v=e.target.value;searchTimer=setTimeout(()=>buscar(v),150);});
 el('btn-clasificar-todos').addEventListener('click',()=>{
   if(!resaltados.length) return;
-  currentBatch=null;
-  resaltados.forEach(fi=>clasificar(fi, brushTipo, false));
-  currentBatch=null;
-  // Actualizar visual (clasificar ya lo hace, pero el resaltado queda amarillo)
+  const fis=resaltados.slice();
   limpiarResaltado();
+  currentBatch=null;
+  fis.forEach(fi=>clasificar(fi,brushTipo,false)); // todo en un solo paso de deshacer
+  currentBatch=null;
   el('btn-clasificar-todos').disabled=true;
 });
-map.getContainer().addEventListener('mousedown',e=>{
+
+/* ── PINCEL: clic, arrastre y hover ──
+   - Si apretás sobre un tramo, pinta y sigue pintando mientras arrastrás.
+   - Si apretás en una zona vacía, el mapa se mueve normal (antes el pincel bloqueaba el paneo).
+   - Entre dos posiciones del mouse se muestrea cada ~6 px, así un arrastre rápido no se salta tramos. */
+const cont=map.getContainer();
+cont.addEventListener('mousedown',e=>{
   if(!pintandoON||e.button!==0) return;
-  isDragging=true; currentBatch=null; map.dragging.disable();
+  if(e.target.closest('.leaflet-control')) return;
+  const p=map.mouseEventToContainerPoint(e);
+  const seg=nearestSeg(p,PICK_TOL);
+  if(!seg) return; // zona vacía → dejar que Leaflet mueva el mapa
+  map.dragging.disable();
+  isDragging=true; lastPaintPt=p; currentBatch=null;
+  clasificar(seg.fi,brushTipo,false);
+  e.preventDefault(); e.stopPropagation();
+},true); // en captura: se decide antes de que Leaflet empiece a arrastrar
+function paintAlong(p0,p1){
+  const n=Math.max(1,Math.ceil(p0.distanceTo(p1)/6));
+  for(let i=1;i<=n;i++){
+    const p=L.point(p0.x+(p1.x-p0.x)*i/n,p0.y+(p1.y-p0.y)*i/n);
+    const seg=nearestSeg(p,PICK_TOL);
+    if(seg) clasificar(seg.fi,brushTipo,false);
+  }
+}
+let hoverRaf=0,hoverPt=null;
+function setHover(seg){
+  if(seg===hoverSeg) return;
+  const prev=hoverSeg; hoverSeg=seg;
+  if(prev) applyStyle(prev);
+  if(seg) applyStyle(seg);
+  el('map').classList.toggle('cursor-paint',!!seg);
+}
+document.addEventListener('mousemove',e=>{
+  if(!pintandoON) return;
+  if(isDragging){const p=map.mouseEventToContainerPoint(e);paintAlong(lastPaintPt,p);lastPaintPt=p;return;}
+  if(e.buttons||!cont.contains(e.target)||e.target.closest('.leaflet-control')){setHover(null);return;}
+  hoverPt=map.mouseEventToContainerPoint(e);
+  if(!hoverRaf) hoverRaf=requestAnimationFrame(()=>{hoverRaf=0;if(pintandoON&&!isDragging)setHover(nearestSeg(hoverPt,PICK_TOL));});
 });
-document.addEventListener('mouseup',()=>{ if(isDragging){isDragging=false;map.dragging.enable();currentBatch=null;} });
-map.on('mousemove',e=>{
-  if(!pintandoON||!isDragging) return;
-  let nearest=null,minD=20;
-  segmentos.forEach(seg=>{
-    if(!seg.layer) return;
-    const lls=seg.layer.getLatLngs();
-    const mp=map.latLngToContainerPoint(e.latlng);
-    for(let i=0;i<lls.length-1;i++){
-      const a=map.latLngToContainerPoint(lls[i]),b=map.latLngToContainerPoint(lls[i+1]);
-      const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
-      const t=len2===0?0:Math.max(0,Math.min(1,((mp.x-a.x)*dx+(mp.y-a.y)*dy)/len2));
-      const d=Math.hypot(mp.x-a.x-t*dx,mp.y-a.y-t*dy);
-      if(d<minD){minD=d;nearest=seg.fi;}
-    }
-  });
-  if(nearest!==null) clasificar(nearest,brushTipo,false);
+cont.addEventListener('mouseleave',()=>{if(!isDragging)setHover(null);});
+document.addEventListener('mouseup',()=>{
+  if(isDragging){isDragging=false;map.dragging.enable();currentBatch=null;}
 });
 
-/* ---- Carga red vial ---- */
+function setPincel(on){
+  pintandoON=on;
+  el('btn-pincel').classList.toggle('mode-active',pintandoON);
+  if(!pintandoON){setHover(null);map.dragging.enable();isDragging=false;}
+  setInstruction(pintandoON
+    ?`Pincel activo (${LABELS[brushTipo]}) — clic o arrastre sobre la red para pintar · arrastre en vacío para mover el mapa`
+    :'Pincel desactivado');
+}
+el('btn-pincel').addEventListener('click',()=>setPincel(!pintandoON));
+
+function setBrush(tipo){
+  brushTipo=tipo;
+  document.querySelectorAll('.brush-btn').forEach(b=>b.classList.toggle('active',b.dataset.tipo===tipo));
+  el('lbl-tipo-activo').textContent=LABELS[tipo]||tipo;
+  if(pintandoON) setInstruction(`Pincel activo (${LABELS[tipo]}) — clic o arrastre sobre la red para pintar · arrastre en vacío para mover el mapa`);
+}
+document.querySelectorAll('.brush-btn').forEach(btn=>btn.addEventListener('click',()=>setBrush(btn.dataset.tipo)));
+
+/* ── ATAJOS DE TECLADO ── */
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();deshacer();return;}
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const map_={'1':'expresa','2':'arterial','3':'colectora','4':'local','0':'limpiar'};
+  if(map_[e.key]){setBrush(map_[e.key]);return;}
+  if(e.key.toLowerCase()==='p'&&!el('btn-pincel').disabled){setPincel(!pintandoON);return;}
+  if(e.key==='Escape'&&pintandoON) setPincel(false);
+});
+
+/* ── CARGA RED VIAL ── */
+function activarUIRed(){
+  el('status-pill').textContent=`${segmentos.length.toLocaleString('es-PE')} segmentos`;
+  el('status-pill').classList.add('ok');
+  el('btn-load-red').classList.remove('primary');
+  el('btn-load-red').classList.add('loaded');
+  el('btn-load-red').innerHTML='<i class="fa-solid fa-check"></i> Red vial cargada';
+  el('btn-load-rutas').disabled=false;
+  el('btn-pincel').disabled=false;
+  el('btn-export').disabled=false;
+  nameIndex=buildNameIndex();
+  el('search-input').disabled=false;
+  el('search-input').value='';
+  el('search-input').placeholder='Ej: Av. España, Jr. Bolívar…';
+  el('search-results').innerHTML='';
+  el('search-results').appendChild(hintDiv('Escribí el nombre de una vía.'));
+  el('btn-clasificar-todos').disabled=true;
+  if(redBounds) map.fitBounds(redBounds,{padding:[30,30]});
+}
 el('btn-load-red').addEventListener('click',()=>el('file-red').click());
 el('file-red').addEventListener('change',async e=>{
   const file=e.target.files[0]; if(!file) return;
-  showLoader('Leyendo red vial…');
+  showLoader('Leyendo red vial…'); await nextFrame();
   try{
     const gj=await readGeoFile(file);
-    redFeatures=(gj.features||[]).filter(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
-    if(!redFeatures.length) throw new Error('No se encontraron líneas.');
+    const feats=(gj.features||[]).filter(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
+    if(!feats.length) throw new Error('No se encontraron líneas.');
+    showLoader('Dibujando red…'); await nextFrame();
+    redFeatures=feats;
+    undoStack=[]; currentBatch=null; el('btn-undo').disabled=true;
     renderRed();
-    const bounds=redLayer.getLayers().length?L.featureGroup(redLayer.getLayers()).getBounds():null;
-    if(bounds) map.fitBounds(bounds,{padding:[30,30]});
-    el('status-pill').textContent=`${redFeatures.length.toLocaleString('es-PE')} segmentos`;
-    el('status-pill').classList.add('ok');
-    el('btn-load-red').classList.remove('primary');
-    el('btn-load-red').classList.add('loaded');
-    el('btn-load-red').textContent='✓ Red vial cargada';
-    el('btn-load-rutas').disabled=false;
-    el('btn-pincel').disabled=false;
-    el('btn-export').disabled=false;
-    // Activar búsqueda
-    nameIndex=buildNameIndex();
-    el('search-input').disabled=false;
-    el('search-input').placeholder='Ej: Av. España, Jr. Bolívar…';
-    el('search-results').innerHTML='<div class="hint">Escribí el nombre de una vía.</div>';
-    el('instruction-text').textContent='Red cargada — cargá las rutas para ver su trazado, luego usá el pincel para clasificar';
+    activarUIRed();
+    setInstruction('Red cargada — cargá las rutas para ver su trazado, luego usá el pincel para clasificar');
   }catch(err){alert('Error: '+err.message);}
   hideLoader(); e.target.value='';
 });
 
-/* ---- Carga rutas ---- */
+/* ── CARGA RUTAS ── */
 el('btn-load-rutas').addEventListener('click',()=>el('file-rutas').click());
 el('file-rutas').addEventListener('change',async e=>{
   const file=e.target.files[0]; if(!file) return;
-  showLoader('Cargando rutas…');
+  showLoader('Cargando rutas…'); await nextFrame();
   try{
     const gj=await readGeoFile(file);
     if(rutasLayer){map.removeLayer(rutasLayer);rutasLayer=null;}
-    rutasLayer=L.geoJSON(gj,{style:{color:'#7c3aed',weight:2.5,opacity:0.7},pointToLayer:()=>null}).addTo(map);
+    rutasLayer=L.geoJSON(gj,{
+      pane:'rutasPane',
+      renderer:L.canvas({pane:'rutasPane',padding:0.5}),
+      interactive:false,
+      style:{color:'#7c3aed',weight:6,opacity:0.45,lineCap:'round'},
+      pointToLayer:()=>null
+    }).addTo(map);
     el('btn-load-rutas').classList.add('loaded');
-    el('btn-load-rutas').textContent='✓ Rutas cargadas';
+    el('btn-load-rutas').innerHTML='<i class="fa-solid fa-check"></i> Rutas cargadas';
     el('btn-toggle-rutas').disabled=false;
     el('btn-toggle-rutas').classList.add('mode-active');
     rutasVisible=true;
-    el('instruction-text').textContent='Activá el pincel, elegí la jerarquía y pintá sobre la red siguiendo las rutas moradas';
+    setInstruction('Activá el pincel, elegí la jerarquía y pintá sobre la red siguiendo las rutas moradas');
   }catch(err){alert('Error: '+err.message);}
   hideLoader(); e.target.value='';
 });
 
-/* ---- Pincel toggle ---- */
-el('btn-pincel').addEventListener('click',()=>{
-  pintandoON=!pintandoON;
-  el('btn-pincel').classList.toggle('mode-active',pintandoON);
-  el('map').classList.toggle('cursor-paint',pintandoON);
-  if(!pintandoON) map.dragging.enable();
-  el('instruction-text').textContent=pintandoON
-    ?`Pincel activo (${brushTipo}) — clic izquierdo arrastrá para pintar, derecho para navegar`
-    :'Pincel desactivado';
-});
-
-/* ---- Brush selector ---- */
-document.querySelectorAll('.brush-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    brushTipo=btn.dataset.tipo;
-    document.querySelectorAll('.brush-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    // Actualizar label del botón clasificar todos
-    const labels={expresa:'Expresa',arterial:'Arterial',colectora:'Colectora',local:'Local',limpiar:'Sin clasificar'};
-    el('lbl-tipo-activo').textContent=labels[brushTipo]||brushTipo;
-    if(pintandoON) el('instruction-text').textContent=`Pincel activo (${brushTipo})`;
-  });
-});
-
-/* ---- Toggle rutas ---- */
 el('btn-toggle-rutas').addEventListener('click',()=>{
   if(!rutasLayer) return;
   rutasVisible=!rutasVisible;
-  if(rutasVisible){rutasLayer.addTo(map);el('btn-toggle-rutas').classList.add('mode-active');}
-  else{map.removeLayer(rutasLayer);el('btn-toggle-rutas').classList.remove('mode-active');}
+  if(rutasVisible) rutasLayer.addTo(map); else map.removeLayer(rutasLayer);
+  el('btn-toggle-rutas').classList.toggle('mode-active',rutasVisible);
+  el('btn-toggle-rutas').innerHTML=rutasVisible?'<i class="fa-solid fa-eye"></i> Rutas':'<i class="fa-solid fa-eye-slash"></i> Rutas';
 });
 
-/* ---- Deshacer ---- */
-el('btn-undo').addEventListener('click',()=>{
+/* ── DESHACER ── */
+function deshacer(){
   if(!undoStack.length) return;
   const batch=undoStack.pop();
-  batch.slice().reverse().forEach(({fi,anterior})=>{
-    const seg=segmentos.find(s=>s.fi===fi); if(!seg) return;
-    seg.tipo=anterior;
-    const color=anterior?TIPO_COLOR[anterior]:'#1c1c1e';
-    const weight=anterior?TIPO_WEIGHT[anterior]:1.5;
-    if(seg.layer) seg.layer.setStyle({color,weight,opacity:0.85});
-  });
+  batch.slice().reverse().forEach(({fi,anterior})=>{const s=segByFi.get(fi);if(s)setTipo(s,anterior);});
   if(!undoStack.length) el('btn-undo').disabled=true;
-  updateCounts();
-});
+  scheduleCounts();
+}
+el('btn-undo').addEventListener('click',deshacer);
 
-/* ---- Export menu ---- */
+/* ── EXPORTAR ── */
 el('btn-export').addEventListener('click',e=>{e.stopPropagation();el('export-menu').classList.toggle('show');});
 document.addEventListener('click',e=>{if(e.target.id!=='btn-export'&&!el('export-menu').contains(e.target))el('export-menu').classList.remove('show');});
-
-function downloadText(fn,text){
-  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([text],{type:'application/json'})),download:fn});
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-}
 
 el('export-clasificacion').addEventListener('click',()=>{
   el('export-menu').classList.remove('show');
@@ -705,7 +838,7 @@ el('export-clasificacion').addEventListener('click',()=>{
   },null,2));
 });
 
-/* ---- Sesión ---- */
+/* ── SESIÓN ── (mismo formato que antes: las sesiones viejas siguen abriendo) */
 el('export-session').addEventListener('click',()=>{
   el('export-menu').classList.remove('show');
   if(!redFeatures.length){alert('No hay datos.');return;}
@@ -719,39 +852,23 @@ el('export-session').addEventListener('click',()=>{
 el('import-session').addEventListener('click',()=>{el('export-menu').classList.remove('show');el('file-session').click();});
 el('file-session').addEventListener('change',async e=>{
   const file=e.target.files[0]; if(!file) return;
-  showLoader('Restaurando sesión…');
+  showLoader('Restaurando sesión…'); await nextFrame();
   try{
     const s=JSON.parse(await file.text());
     if(!s.tipo?.includes('clasificador')) throw new Error('No es una sesión del Clasificador Vial.');
-    // Limpiar estado anterior
-    if(redLayer){map.removeLayer(redLayer);redLayer=null;}
-    // Mantener rutas si ya estaban cargadas
-    limpiarResaltado();
-    undoStack=[]; el('btn-undo').disabled=true;
+    undoStack=[]; currentBatch=null; el('btn-undo').disabled=true;
     redFeatures=s.redFeatures||[];
-    renderRed();
-    s.clasificacion.forEach(({fi,tipo})=>{
-      const seg=segmentos.find(x=>x.fi===fi); if(!seg||!tipo) return;
-      seg.tipo=tipo;
-      if(seg.layer) seg.layer.setStyle({color:TIPO_COLOR[tipo],weight:TIPO_WEIGHT[tipo],opacity:0.85});
+    renderRed(); // las rutas cargadas, si había, se mantienen
+    (s.clasificacion||[]).forEach(({fi,tipo})=>{
+      const seg=segByFi.get(fi); if(!seg||!tipo||!TIPO_COLOR[tipo]) return;
+      setTipo(seg,tipo);
     });
-    const bounds=redLayer.getLayers().length?L.featureGroup(redLayer.getLayers()).getBounds():null;
-    if(bounds) map.fitBounds(bounds,{padding:[30,30]});
-    el('btn-load-red').classList.add('loaded');el('btn-load-red').textContent='✓ Red vial cargada';
-    el('btn-load-rutas').disabled=false;el('btn-pincel').disabled=false;el('btn-export').disabled=false;
-    nameIndex=buildNameIndex();
-    el('search-input').disabled=false;
-    el('search-results').innerHTML='<div class="hint">Escribí el nombre de una vía.</div>';
-    el('status-pill').textContent=`${redFeatures.length.toLocaleString('es-PE')} segmentos`;
-    el('status-pill').classList.add('ok');
-    updateCounts();
-    el('instruction-text').textContent='Sesión restaurada — podés seguir clasificando';
+    activarUIRed();
+    scheduleCounts();
+    setInstruction('Sesión restaurada — podés seguir clasificando');
   }catch(err){alert('Error: '+err.message);}
   hideLoader(); e.target.value='';
 });
-
-function showLoader(t){el('loader-text').textContent=t;el('loader').classList.add('show');}
-function hideLoader(){el('loader').classList.remove('show');}
 </script>
 </body>
 </html>
