@@ -986,13 +986,87 @@ function updateInfoBar(){
 
 /* ── BOTONES HEADER ── */
 el('btn-load-red').addEventListener('click',()=>el('file-red').click());
+/* ── PREPARAR RED VIAL (exportaciones crudas de OSM) ──
+   En OSM una avenida es un "way" que recorre varias cuadras de corrido. En las esquinas
+   reales comparte un nodo con la otra calle, pero la línea no está cortada ahí; por eso
+   al pintar se tomaba la avenida entera. Al cargar la red:
+   1) Las MultiLineString se separan en líneas simples (antes solo se usaba la primera parte).
+   2) Si la red es una exportación cruda de OSM (trae el campo "highway"), se quita lo que
+      no es vía vehicular: muros, ríos, barreras (sin highway), veredas, peatonales,
+      escaleras, accesos de servicio, ciclovías, caminos, vías en construcción y proyectadas.
+   3) Cada línea se corta en los vértices que comparte con otra calle (esquinas reales).
+      Puentes y pasos a desnivel no comparten nodo con la vía de abajo, así que no se cortan.
+   Una red que ya viene cortada en las esquinas (como las de un modelo) queda igual. */
+const HIGHWAY_EXCLUIDOS=new Set(['footway','pedestrian','steps','service','path','cycleway','bridleway',
+  'corridor','elevator','platform','construction','proposed','abandoned','razed','disused','raceway','bus_stop']);
+function prepararRedVial(feats){
+  const stats={lineasOriginales:feats.length,quitados:0,esquinas:0,tramos:0,filtroOSM:false};
+  // 1) Separar MultiLineString
+  let lineas=[];
+  feats.forEach(f=>{
+    const g=f.geometry,props=f.properties||{};
+    const partes=g.type==='MultiLineString'?g.coordinates:[g.coordinates];
+    partes.forEach(c=>{if(c&&c.length>=2)lineas.push({props,coords:c});});
+  });
+  // 2) Filtro OSM: solo si la mayoría de las líneas trae la clave "highway" (exportación cruda)
+  const conClave=lineas.filter(l=>'highway' in l.props).length;
+  if(conClave>=lineas.length*0.5){
+    stats.filtroOSM=true;
+    const antes=lineas.length;
+    lineas=lineas.filter(l=>{const h=l.props.highway;return h&&!HIGHWAY_EXCLUIDOS.has(String(h).toLowerCase());});
+    stats.quitados=antes-lineas.length;
+  }
+  // 3) Cortar en vértices compartidos entre líneas distintas
+  const K=c=>c[0].toFixed(7)+','+c[1].toFixed(7);
+  const uso=new Map(); // vértice → id de la primera línea que lo usa, o -1 si lo usan dos o más
+  lineas.forEach((l,i)=>{
+    l.coords.forEach(c=>{
+      const k=K(c),u=uso.get(k);
+      if(u===undefined)uso.set(k,i);else if(u!==i&&u!==-1)uso.set(k,-1);
+    });
+  });
+  const out=[];
+  lineas.forEach(l=>{
+    const c=l.coords;
+    const cortes=[0];
+    for(let k=1;k<c.length-1;k++) if(uso.get(K(c[k]))===-1) cortes.push(k);
+    cortes.push(c.length-1);
+    stats.esquinas+=cortes.length-2;
+    const dist=+l.props.distance;
+    const largoTotal=cortes.length>2&&dist>0?lineLengthM(c):0;
+    for(let k=0;k<cortes.length-1;k++){
+      const tramo=c.slice(cortes[k],cortes[k+1]+1);
+      const props={...l.props};
+      if(largoTotal>0) props.distance=dist*lineLengthM(tramo)/largoTotal; // longitud del modelo repartida
+      out.push({type:'Feature',properties:props,geometry:{type:'LineString',coordinates:tramo}});
+    }
+  });
+  stats.tramos=out.length;
+  return {features:out,stats};
+}
+function lineLengthM(c){
+  let m=0;
+  for(let i=1;i<c.length;i++){
+    const [lon1,lat1]=c[i-1],[lon2,lat2]=c[i];
+    const dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+    const h=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    m+=2*6371008.8*Math.asin(Math.min(1,Math.sqrt(h)));
+  }
+  return m;
+}
+
 el('file-red').addEventListener('change',async e=>{
   const file=e.target.files[0];if(!file)return;
   showLoader('Leyendo red vial…');
   try{
     const gj=await readGeoFile(file);
-    redFeatures=(gj.features||[]).filter(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
-    if(!redFeatures.length)throw new Error('No se encontraron líneas en el archivo.');
+    const lineas=(gj.features||[]).filter(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
+    if(!lineas.length)throw new Error('No se encontraron líneas en el archivo.');
+    showLoader('Cortando la red en las intersecciones…');
+    await new Promise(r=>setTimeout(r,30));
+    const {features:prep,stats}=prepararRedVial(lineas);
+    if(!prep.length)throw new Error('No quedaron vías después de filtrar el archivo.');
+    redFeatures=prep;
     renderRed();
     const bounds=L.featureGroup(redLayer.getLayers()).getBounds();
     if(bounds.isValid())map.fitBounds(bounds,{padding:[30,30]});
@@ -1004,7 +1078,12 @@ el('file-red').addEventListener('change',async e=>{
     el('btn-edit-network').disabled=false;
     el('btn-export').disabled=!redFeatures.length;
     el('new-route-name').disabled=false;el('btn-add-route').disabled=false;
-    setInstruction('Red cargada — creá una ruta en el panel y empezá a trazar');
+    const partes=[];
+    if(stats.esquinas) partes.push(`${stats.esquinas.toLocaleString('es-PE')} esquinas cortadas`);
+    if(stats.quitados) partes.push(`${stats.quitados.toLocaleString('es-PE')} elementos que no son vías quitados`);
+    setInstruction(partes.length
+      ?`Red preparada: ${stats.lineasOriginales.toLocaleString('es-PE')} líneas → ${stats.tramos.toLocaleString('es-PE')} tramos (${partes.join(' · ')}) — creá una ruta y empezá a trazar`
+      :'Red cargada — creá una ruta en el panel y empezá a trazar');
     renderRoutesPanel();
   }catch(err){alert('Error: '+err.message);}
   hideLoader();e.target.value='';
