@@ -322,6 +322,8 @@ const el = id => document.getElementById(id);
 let redFeatures = [];      // features GeoJSON de la red (ya en WGS84)
 let redLayer = null;       // layerGroup con todas las polilíneas (canvas)
 let rutasLayer = null;
+let redRenderer = null;
+let rutasCanvas = null; // lienzo de las rutas, se reemplaza al volver a cargarlas
 let rutasVisible = true;
 let segmentos = [];        // [{fi, tipo, latlngs, layer}]
 let segByFi = new Map();   // fi → segmento, acceso O(1) (antes: segmentos.find en cada operación)
@@ -547,7 +549,10 @@ function renderRed(){
   const usedKeys=new Map(); // dos tramos con la misma geometría se desambiguan con #n
   hoverSeg=null; resaltados=[]; resaltadoSet.clear();
   Object.keys(counts).forEach(k=>counts[k]=0);
+  // Quitar el lienzo anterior (si no, cada carga de red o sesión deja uno más en el mapa)
+  if(redRenderer){map.removeLayer(redRenderer);redRenderer=null;}
   const renderer=L.canvas({padding:0.5});
+  redRenderer=renderer;
   redLayer=L.layerGroup();
   let minLat=Infinity,minLng=Infinity,maxLat=-Infinity,maxLng=-Infinity;
   redFeatures.forEach((f,fi)=>{
@@ -821,9 +826,11 @@ el('file-rutas').addEventListener('change',async e=>{
   try{
     const gj=await readGeoFile(file);
     if(rutasLayer){map.removeLayer(rutasLayer);rutasLayer=null;}
+    if(rutasCanvas){map.removeLayer(rutasCanvas);}
+    rutasCanvas=L.canvas({pane:'rutasPane',padding:0.5});
     rutasLayer=L.geoJSON(gj,{
       pane:'rutasPane',
-      renderer:L.canvas({pane:'rutasPane',padding:0.5}),
+      renderer:rutasCanvas,
       interactive:false,
       style:{color:'#7c3aed',weight:6,opacity:0.45,lineCap:'round'},
       pointToLayer:()=>null
