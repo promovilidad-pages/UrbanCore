@@ -66,11 +66,11 @@
     padding: 12px;
     gap: 12px;
     background:
-      radial-gradient(circle at 8% 12%, rgba(255,122,220,.55), transparent 42%),
-      radial-gradient(circle at 85% 8%, rgba(90,150,255,.55), transparent 45%),
-      radial-gradient(circle at 25% 85%, rgba(120,225,210,.5), transparent 48%),
-      radial-gradient(circle at 90% 80%, rgba(255,196,110,.45), transparent 45%),
-      linear-gradient(135deg, #dfe7fb 0%, #eef1f8 50%, #e6f2f0 100%);
+      radial-gradient(circle at 8% 12%, rgba(0,102,204,.16), transparent 42%),
+      radial-gradient(circle at 85% 8%, rgba(74,144,217,.20), transparent 45%),
+      radial-gradient(circle at 25% 85%, rgba(30,70,140,.14), transparent 48%),
+      radial-gradient(circle at 90% 80%, rgba(0,80,160,.14), transparent 45%),
+      linear-gradient(135deg, #e7edf8 0%, #eef1f6 50%, #e6ecf5 100%);
     background-attachment: fixed;
   }
   body::before {
@@ -636,6 +636,7 @@
 .ed-mov-item.sel{background:rgba(232,242,255,.8);border-color:#0066CC}
 </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.js"></script>
 </head>
 <body>
 
@@ -1978,7 +1979,11 @@ function renderResultados(){
 
   <!-- Gráfico sistema total -->
   <div style="font-size:12px;font-weight:500;color:var(--text-sec);margin-bottom:8px">Histograma del sistema — vehículos simples por intervalo</div>
-  <div style="position:relative;height:520px;overflow:hidden;width:100%"><canvas id="chart-sistema" style="display:block"></canvas></div>
+  <div id="chart-sistema" style="width:100%"></div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:#555">
+    <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#2E86DE;margin-right:5px;vertical-align:-1px"></i>Intervalo</span>
+    <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#F39C12;margin-right:5px;vertical-align:-1px"></i>Hora punta</span>
+  </div>
   </div>`;
 
   // ── B. TABLA COMPLETA POR TURNO
@@ -2336,7 +2341,11 @@ function renderResultados(){
       // ── HISTOGRAMA PEATONAL
       html+=`<div style="margin-top:16px">
         <div style="font-size:12px;font-weight:500;color:var(--text-sec);margin-bottom:8px">Histograma peatonal — total por intervalo</div>
-        <div style="position:relative;height:420px;overflow:hidden;width:100%"><canvas id="chart-peatonal" style="display:block"></canvas></div>
+        <div id="chart-peatonal" style="width:100%"></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:#555">
+          <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#27AE60;margin-right:5px;vertical-align:-1px"></i>Intervalo</span>
+          <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#F39C12;margin-right:5px;vertical-align:-1px"></i>Hora punta</span>
+        </div>
       </div>`;
     }
 
@@ -2346,475 +2355,171 @@ function renderResultados(){
   document.getElementById('res-content').innerHTML=html;
   document.getElementById('res-subtitle').textContent=`HP Global — ${S.gen.inter||'Intersección'} · ${S.gen.dia||''}`;
 
-  // Draw histogram after DOM is updated
-  setTimeout(()=>{
-    const canvasSist=document.getElementById('chart-sistema');
-    if(canvasSist) drawHistogramSistema(canvasSist);
-    const canvasPeat=document.getElementById('chart-peatonal');
-    if(canvasPeat) drawHistogramPeatonal(canvasPeat);
-  }, 120);
+  // Destruir gráficas de un cálculo anterior antes de montar las nuevas
+  _histInstances.forEach(c=>{ try{c.destroy();}catch(ex){} });
+  _histInstances=[];
+  const elSist=document.getElementById('chart-sistema');
+  if(elSist){ const c=drawHistogramSistema(elSist); if(c) _histInstances.push(c); }
+  const elPeat=document.getElementById('chart-peatonal');
+  if(elPeat){ const c=drawHistogramPeatonal(elPeat); if(c) _histInstances.push(c); }
+}
+let _histInstances=[];
+
+// Helper compartido: histograma de todo el día con barras resaltadas en cada
+// ventana de hora punta (una por turno activo) y separadores entre turnos.
+function _renderDayHistogram(el, cfg){
+  const {activeIntervals, vals, hpSets, hpWindows, colorNormal, colorHP, yTitle, height}=cfg;
+  if(!el||!activeIntervals.length) return null;
+  const categories=activeIntervals.map(a=>a.inter.substring(0,5));
+
+  const sepAnnotations=[];
+  let prevT=-1;
+  activeIntervals.forEach((a,i)=>{
+    if(a.t!==prevT&&prevT>=0){
+      sepAnnotations.push({x:categories[i],borderColor:'rgba(0,0,0,0.25)',strokeDashArray:4});
+    }
+    prevT=a.t;
+  });
+
+  const hpAnnotations=[];
+  const LINE_H=13;
+  // Ancho aproximado de cada categoría en píxeles, para poder centrar el
+  // cartel HP con un offsetX exacto en vez de "adivinar" con floor/round
+  // sobre el índice (eso es lo que lo dejaba corrido a la izquierda).
+  const containerW=el.clientWidth||1200;
+  const estLeftPad=58, estRightPad=20;
+  const catW=Math.max(4,(containerW-estLeftPad-estRightPad)/categories.length);
+  hpWindows.forEach(w=>{
+    const nBars=w.endIdx-w.startIdx+1;
+    const centerOffsetX=((nBars-1)/2)*catW; // del borde de la primera barra al centro real del umbral
+    hpAnnotations.push({x:categories[w.startIdx],x2:categories[w.endIdx],fillColor:colorHP,opacity:0.07,borderColor:'transparent'});
+    // Cada línea del cartel es su propia mini-anotación apilada sobre la
+    // misma x — ApexCharts no soporta saltos de línea (\n) dentro del
+    // texto de una anotación, así que esta es la forma confiable de
+    // lograr varias líneas en el mismo punto, ya centrado con offsetX.
+    w.lines.forEach((ln,li)=>{
+      const offsetY=-(LINE_H*(w.lines.length-li)+6);
+      hpAnnotations.push({
+        x:categories[w.startIdx],borderColor:'transparent',
+        label:{
+          text:ln.text,orientation:'horizontal',position:'top',offsetX:centerOffsetX,offsetY,
+          borderWidth:0,
+          style:{
+            color:ln.color||'#C0392B',background:'#fff',
+            fontSize:ln.bold?'10px':'9px',fontWeight:ln.bold?700:500,
+            padding:{left:6,right:6,top:2,bottom:2}
+          }
+        }
+      });
+    });
+  });
+
+  const chart=new ApexCharts(el,{
+    chart:{type:'bar',height:height||420,fontFamily:'inherit',toolbar:{show:false},animations:{speed:400}},
+    series:[{name:'Volumen',data:vals}],
+    xaxis:{
+      categories,
+      labels:{rotate:-40,style:{fontSize:'9px'},hideOverlappingLabels:true},
+      title:{text:'Horas',style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}
+    },
+    yaxis:{title:{text:yTitle,style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}},
+    colors:[({dataPointIndex})=>hpSets.has(dataPointIndex)?colorHP:colorNormal],
+    plotOptions:{bar:{columnWidth:'65%',borderRadius:2,dataLabels:{position:'top'}}},
+    dataLabels:{
+      enabled:true,
+      formatter:v=>v>0?v.toLocaleString():'',
+      style:{fontSize:'8px',fontWeight:700,colors:['#1D1D1F']},
+      offsetY:-14
+    },
+    grid:{borderColor:'#E5E5EA',padding:{top:85}},
+    legend:{show:false},
+    tooltip:{y:{formatter:v=>v.toLocaleString()}},
+    annotations:{xaxis:[...sepAnnotations,...hpAnnotations]}
+  });
+  chart.render();
+  return chart;
 }
 
-function drawHistogramPeatonal(canvas){
+function drawHistogramPeatonal(el){
   const activeLados=S.lados.filter(l=>l.activo);
-  if(!activeLados.length) return;
-
-  // Check if there's any data
+  if(!activeLados.length) return null;
   const hasData=INTERVALS.some((_,ii)=>calcPeatTotQ(ii,activeLados)>0);
-  if(!hasData) return;
+  if(!hasData) return null;
 
   const activeIntervals=[];
   INTERVALS.forEach((inter,ii)=>{
     for(let t=0;t<4;t++){
       if(S.turnos[t]?.activo===false) continue;
-      if(getIntervalTurnoCustom(ii,t)>=0){
-        activeIntervals.push({ii,inter,t});
-        break;
-      }
+      if(getIntervalTurnoCustom(ii,t)>=0){ activeIntervals.push({ii,inter,t}); break; }
     }
   });
-  if(!activeIntervals.length) return;
+  if(!activeIntervals.length) return null;
 
   const vals=activeIntervals.map(({ii})=>calcPeatTotQ(ii,activeLados));
-
-  // HP intervals
   const hpSets=new Set();
-  S.hpPeat&&S.hpPeat.forEach((hpP,t)=>{
-    if(!hpP||hpP.row<0||S.turnos[t]?.activo===false) return;
-    for(let k=hpP.row-3;k<=hpP.row;k++){
-      const idx=activeIntervals.findIndex(a=>a.ii===k);
-      if(idx>=0) hpSets.add(idx);
-    }
-  });
-
-  const maxVal=Math.max(...vals,1);
-  const N=activeIntervals.length;
-  const W=Math.max(400,Math.min(document.documentElement.clientWidth-80,1200));
-  const H=420;
-  canvas.width=W; canvas.height=H;
-  canvas.style.width=W+'px'; canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,H);
-
-  const PAD={top:130,right:24,bot:64,left:62};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
-  const slotW=plotW/N;
-  const barW=Math.max(2,slotW*0.65);
-  const barOffset=(slotW-barW)/2;
-
-  const BAR_NORMAL='#27AE60';
-  const BAR_HP='#F39C12';
-
-  // Grid
-  ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=0.5;
-  for(let g=0;g<=6;g++){
-    const y=PAD.top+plotH*(1-g/6);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';ctx.font='10px system-ui';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxVal*g/6),PAD.left-6,y+3);
-  }
-
-  // Y axis label
-  ctx.fillStyle='#1D1D1F';ctx.font='bold 10px system-ui';
-  ctx.save();ctx.translate(14,PAD.top+plotH/2);ctx.rotate(-Math.PI/2);
-  ctx.textAlign='center';ctx.fillText('Cantidad de Peatones',0,0);ctx.restore();
-
-  // Bars
-  vals.forEach((val,i)=>{
-    const isHP=hpSets.has(i);
-    const x=PAD.left+(i/N)*plotW+barOffset;
-    const bh=val>0?(val/maxVal)*plotH:0;
-    const y=PAD.top+plotH-bh;
-    if(val>0){
-      ctx.fillStyle=isHP?BAR_HP:BAR_NORMAL;
-      ctx.fillRect(x,y,barW,bh);
-      ctx.fillStyle=isHP?'#8B4513':'#1A6B3A';
-      ctx.fillRect(x,y,barW,3);
-    }
-    if(val>0&&barW>12){
-      ctx.fillStyle=isHP?'#8B4513':'#1A6B3A';
-      ctx.font=`bold ${Math.min(9,barW*0.5)}px system-ui`;
-      ctx.textAlign='center';
-      ctx.fillText(val,x+barW/2,y-3);
-    }
-  });
-
-  // HP annotations
+  const hpWindows=[];
   S.hpPeat&&S.hpPeat.forEach((hpP,t)=>{
     if(!hpP||hpP.row<0||S.turnos[t]?.activo===false) return;
     const startIdx=activeIntervals.findIndex(a=>a.ii===Math.max(0,hpP.row-3));
     const endIdx=activeIntervals.findIndex(a=>a.ii===hpP.row);
     if(startIdx<0||endIdx<0) return;
-
-    const xStart=PAD.left+(startIdx/N)*plotW+barOffset;
-    const xEnd=PAD.left+((endIdx+1)/N)*plotW-barOffset;
-    const xMid=(xStart+xEnd)/2;
-
-    let maxHP=0;
-    for(let i=startIdx;i<=endIdx;i++) if(vals[i]>maxHP) maxHP=vals[i];
-    const bracketY=PAD.top+plotH-(maxHP/maxVal)*plotH-18;
-
-    // Annotation lines
-    const annLines=[
-      {txt:['Madrugada','Mañana','Tarde','Noche'][t], color:'#C0392B', bold:true,  size:11},
-      {txt:`${hpP.sumH.toLocaleString()} Peatones/h`,  color:'#27AE60', bold:false, size:12},
-      {txt:hpP.hora,                                    color:'#888',    bold:false, size:10},
-    ];
-    let maxAnnW=0;
-    annLines.forEach(line=>{
-      ctx.font=`${line.bold?'bold ':''}${line.size}px system-ui`;
-      const tw=ctx.measureText(line.txt).width;
-      if(tw>maxAnnW) maxAnnW=tw;
-    });
-    const annH=annLines.length*16+4;
-    const annY=bracketY-annH-16;
-    let annCenterX=xMid;
-    if(annCenterX-maxAnnW/2<PAD.left+4) annCenterX=PAD.left+4+maxAnnW/2;
-    if(annCenterX+maxAnnW/2>W-PAD.right-4) annCenterX=W-PAD.right-4-maxAnnW/2;
-
-    let lineY=annY;
-    annLines.forEach(line=>{
-      ctx.font=`${line.bold?'bold ':''}${line.size}px system-ui`;
-      const tw=ctx.measureText(line.txt).width;
-      ctx.fillStyle=line.color;ctx.textAlign='left';
-      ctx.fillText(line.txt,annCenterX-tw/2,lineY);
-      lineY+=16;
-    });
-
-    // Arrow + bracket
-    const arrowBotY=bracketY-4;
-    ctx.strokeStyle='#C0392B';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
-    ctx.beginPath();ctx.moveTo(xMid,annY+annH+2);ctx.lineTo(xMid,arrowBotY-10);ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle='#C0392B';ctx.beginPath();
-    ctx.moveTo(xMid,arrowBotY);ctx.lineTo(xMid-6,arrowBotY-10);ctx.lineTo(xMid+6,arrowBotY-10);
-    ctx.closePath();ctx.fill();
-    ctx.strokeStyle='#F39C12';ctx.lineWidth=2;ctx.lineJoin='round';
-    ctx.beginPath();
-    ctx.moveTo(xStart,bracketY+12);ctx.lineTo(xStart,bracketY);
-    ctx.lineTo(xEnd,bracketY);ctx.lineTo(xEnd,bracketY+12);ctx.stroke();
+    for(let i=startIdx;i<=endIdx;i++) hpSets.add(i);
+    hpWindows.push({startIdx,endIdx,lines:[
+      {text:TURNO_NAMES[t],color:'#C0392B',bold:true},
+      {text:`${hpP.sumH.toLocaleString()} Peatones (Peatones/h)`,color:'#1A6B3A'},
+      {text:hpP.hora,color:'#888'}
+    ]});
   });
 
-  // Turno separators
-  let prevT=-1;
-  activeIntervals.forEach(({t},i)=>{
-    if(t!==prevT&&prevT>=0){
-      const x=PAD.left+(i/N)*plotW-slotW*0.1;
-      ctx.fillStyle='rgba(0,0,0,0.04)';ctx.fillRect(x-3,PAD.top,6,plotH);
-      ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
-      ctx.beginPath();ctx.moveTo(x,PAD.top);ctx.lineTo(x,PAD.top+plotH);ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    prevT=t;
+  return _renderDayHistogram(el,{
+    activeIntervals,vals,hpSets,hpWindows,
+    colorNormal:'#27AE60',colorHP:'#F39C12',
+    yTitle:'Cantidad de Peatones',height:420
   });
-
-  // X axis
-  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PAD.left,PAD.top+plotH);ctx.lineTo(PAD.left+plotW,PAD.top+plotH);ctx.stroke();
-  ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';
-  const labelEvery=N>30?2:1;
-  activeIntervals.forEach(({inter},i)=>{
-    if(i%labelEvery!==0) return;
-    const x=PAD.left+(i/N)*plotW+slotW/2;
-    ctx.save();ctx.translate(x,H-PAD.bot+8);ctx.rotate(-Math.PI/4);
-    ctx.textAlign='right';ctx.fillText(inter.substring(0,5),0,0);ctx.restore();
-  });
-
-  // Legend
-  const legY=H-12;
-  ctx.fillStyle=BAR_NORMAL;ctx.fillRect(PAD.left,legY-8,14,10);
-  ctx.fillStyle='#555';ctx.font='10px system-ui';ctx.textAlign='left';
-  ctx.fillText('Intervalo',PAD.left+17,legY);
-  ctx.fillStyle=BAR_HP;ctx.fillRect(PAD.left+90,legY-8,14,10);
-  ctx.fillText('Hora punta',PAD.left+107,legY);
-  ctx.fillStyle='#1D1D1F';ctx.font='bold 10px system-ui';ctx.textAlign='center';
-  ctx.fillText('Horas',PAD.left+plotW/2,H-4);
 }
 
-function drawHistogramSistema(canvas){
+function drawHistogramSistema(el){
   const aveh=S.vehiculos.filter(v=>v.ok);
   const accActivos=S.accesos.filter(a=>a.activo);
 
-  // Collect only active intervals across all active turnos
   const activeIntervals=[];
   INTERVALS.forEach((inter,ii)=>{
     for(let t=0;t<4;t++){
       if(S.turnos[t]?.activo===false) continue;
-      if(getIntervalTurnoCustom(ii,t)>=0){
-        activeIntervals.push({ii,inter,t});
-        break;
-      }
+      if(getIntervalTurnoCustom(ii,t)>=0){ activeIntervals.push({ii,inter,t}); break; }
     }
   });
+  if(!activeIntervals.length) return null;
 
-  if(!activeIntervals.length) return;
-
-  // Compute values and HP sets
-  const vals=activeIntervals.map(({ii,t})=>{
+  const vals=activeIntervals.map(({ii})=>{
     let s=0;
     accActivos.forEach(acc=>{ s+=calcTotQ(acc.id,ii,acc.movs,aveh); });
     return s;
   });
 
-  // HP intervals (indices into activeIntervals)
   const hpSets=new Set();
+  const hpWindows=[];
   S.hpGlobal&&S.hpGlobal.forEach((hpG,t)=>{
     if(!hpG||hpG.row<0||S.turnos[t]?.activo===false) return;
-    for(let k=hpG.row-3;k<=hpG.row;k++){
-      const idx=activeIntervals.findIndex(a=>a.ii===k);
-      if(idx>=0) hpSets.add(idx);
-    }
-  });
-
-  const maxVal=Math.max(...vals,1);
-  const N=activeIntervals.length;
-
-  // Canvas sizing - taller for labels
-  // Use document body width minus margins - stable across redraws
-  const W=Math.max(400, Math.min(document.documentElement.clientWidth - 80, 1200));
-  const H=520;
-  canvas.width=W; canvas.height=H;
-  canvas.style.width=W+'px';
-  canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-
-  const PAD={top:130,right:24,bot:64,left:62};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
-  const slotW=plotW/N;
-  const barW=Math.max(2, slotW*0.65);
-  const barOffset=(slotW-barW)/2;
-
-  // ── Background white
-  ctx.fillStyle='#FFFFFF';
-  ctx.fillRect(0,0,W,H);
-
-  // ── Grid lines horizontal
-  ctx.strokeStyle='rgba(0,0,0,0.07)';
-  ctx.lineWidth=0.5;
-  const nGridLines=6;
-  for(let g=0;g<=nGridLines;g++){
-    const y=PAD.top+plotH*(1-g/nGridLines);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';
-    ctx.font='10px system-ui';
-    ctx.textAlign='right';
-    const val=Math.round(maxVal*g/nGridLines);
-    ctx.fillText(val.toLocaleString(),PAD.left-6,y+3);
-  }
-
-  // ── Axis labels
-  ctx.fillStyle='#1D1D1F';
-  ctx.font='bold 10px system-ui';
-  ctx.textAlign='center';
-  ctx.save();
-  ctx.translate(14,PAD.top+plotH/2);
-  ctx.rotate(-Math.PI/2);
-  ctx.fillText('Cantidad de Vehículos',0,0);
-  ctx.restore();
-
-  // ── Bars
-  const BAR_NORMAL='#2E86DE';
-  const BAR_HP='#F39C12';
-  const BAR_NORMAL_TOP='#1A5FA8';
-  const BAR_HP_TOP='#D68910';
-
-  vals.forEach((val,i)=>{
-    const isHP=hpSets.has(i);
-    const x=PAD.left+(i/N)*plotW+barOffset;
-    const bh=val>0?(val/maxVal)*plotH:0;
-    const y=PAD.top+plotH-bh;
-
-    if(val>0){
-      // Bar gradient effect
-      ctx.fillStyle=isHP?BAR_HP:BAR_NORMAL;
-      ctx.fillRect(x,y,barW,bh);
-      // Top accent line
-      ctx.fillStyle=isHP?BAR_HP_TOP:BAR_NORMAL_TOP;
-      ctx.fillRect(x,y,barW,3);
-    } else {
-      // Zero bar - small stub
-      ctx.fillStyle='rgba(0,0,0,0.1)';
-      ctx.fillRect(x,PAD.top+plotH-2,barW,2);
-    }
-
-    // Value label on top of bar
-    if(val>0 && barW>12){
-      ctx.fillStyle=isHP?'#8B4513':'#1A5FA8';
-      ctx.font=`bold ${Math.min(9,barW*0.5)}px system-ui`;
-      ctx.textAlign='center';
-      ctx.fillText(val.toLocaleString(),x+barW/2,y-3);
-    } else if(val===0){
-      ctx.fillStyle='rgba(0,0,0,0.25)';
-      ctx.font='9px system-ui';
-      ctx.textAlign='center';
-      ctx.fillText('0',x+barW/2,PAD.top+plotH-5);
-    }
-  });
-
-  // ── HP bracket + annotation per turno
-  S.hpGlobal&&S.hpGlobal.forEach((hpG,t)=>{
-    if(!hpG||hpG.row<0||S.turnos[t]?.activo===false) return;
-
     const startIdx=activeIntervals.findIndex(a=>a.ii===Math.max(0,hpG.row-3));
     const endIdx=activeIntervals.findIndex(a=>a.ii===hpG.row);
     if(startIdx<0||endIdx<0) return;
-
-    const xStart=PAD.left+(startIdx/N)*plotW+barOffset;
-    const xEnd=PAD.left+((endIdx+1)/N)*plotW-barOffset;
-    const xMid=(xStart+xEnd)/2;
-
-    // Find max bar height in HP range for bracket placement
-    let maxHP=0;
-    for(let i=startIdx;i<=endIdx;i++) if(vals[i]>maxHP) maxHP=vals[i];
-    const bracketY=PAD.top+plotH-(maxHP/maxVal)*plotH - 18;
-    const bracketY2=bracketY-8;
-
-    // Annotation centered above bracket midpoint
-    const TNAMES_SHORT=['Madrugada','Mañana','Tarde','Noche'];
-
-    // Measure annotation width to center it
-    const annLines=[
-      {txt:TNAMES_SHORT[t], color:'#C0392B', bold:true,  size:11},
-      {txt:hpG.totSistema.toLocaleString()+' Vehículos (Veh/h)', color:'#1D1D1F', bold:false, size:12},
-      {txt:hpG.ucpSistema.toLocaleString()+' UCP (Autos/h)',     color:'#555',    bold:false, size:12},
-      {txt:hpG.hora,                                              color:'#888',    bold:false, size:10},
-    ];
-
-    // Position annotation: centered on xMid, just above bracket
-    const annH=annLines.length*16+4;
-    const annY=bracketY-annH-16;  // above bracket with gap for arrow
-
-    // Measure max line width to know annotation block width
-    let maxAnnW=0;
-    annLines.forEach(line=>{
-      ctx.font=`${line.bold?'bold ':''}${line.size}px system-ui`;
-      const tw=ctx.measureText(line.txt).width;
-      if(tw>maxAnnW) maxAnnW=tw;
-    });
-
-    // Center on xMid but clamp so it never goes outside canvas
-    let annCenterX=xMid;
-    const annLeft=annCenterX-maxAnnW/2;
-    const annRight=annCenterX+maxAnnW/2;
-    if(annLeft < PAD.left+4) annCenterX=PAD.left+4+maxAnnW/2;
-    if(annRight > W-PAD.right-4) annCenterX=W-PAD.right-4-maxAnnW/2;
-
-    // Draw each line centered on annCenterX
-    let lineY=annY;
-    annLines.forEach(line=>{
-      ctx.font=`${line.bold?'bold ':''}${line.size}px system-ui`;
-      const tw=ctx.measureText(line.txt).width;
-      const lineX=annCenterX-tw/2;
-      ctx.fillStyle=line.color;
-      ctx.textAlign='left';
-      ctx.fillText(line.txt, lineX, lineY);
-      lineY+=16;
-    });
-
-    // Arrow: from annotation bottom down to bracket, centered on xMid
-    const arrowTopY=annY+annH+2;
-    const arrowBotY=bracketY-4;
-
-    // Vertical line
-    ctx.strokeStyle='#C0392B';
-    ctx.lineWidth=1.5;
-    ctx.setLineDash([3,3]);
-    ctx.beginPath();
-    ctx.moveTo(xMid,arrowTopY);
-    ctx.lineTo(xMid,arrowBotY-10);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Arrowhead pointing down to bracket
-    ctx.fillStyle='#C0392B';
-    ctx.beginPath();
-    ctx.moveTo(xMid, arrowBotY);
-    ctx.lineTo(xMid-6, arrowBotY-10);
-    ctx.lineTo(xMid+6, arrowBotY-10);
-    ctx.closePath();
-    ctx.fill();
-
-    // Bracket below arrow
-    ctx.strokeStyle='#F39C12';
-    ctx.lineWidth=2;
-    ctx.lineJoin='round';
-    ctx.beginPath();
-    ctx.moveTo(xStart, bracketY+12);
-    ctx.lineTo(xStart, bracketY);
-    ctx.lineTo(xEnd,   bracketY);
-    ctx.lineTo(xEnd,   bracketY+12);
-    ctx.stroke();
+    for(let i=startIdx;i<=endIdx;i++) hpSets.add(i);
+    hpWindows.push({startIdx,endIdx,lines:[
+      {text:TURNO_NAMES[t],color:'#C0392B',bold:true},
+      {text:`${hpG.totSistema.toLocaleString()} Vehículos (Veh/h)`,color:'#1D1D1F'},
+      {text:`${hpG.ucpSistema.toLocaleString()} UCP (Autos/h)`,color:'#555'},
+      {text:hpG.hora,color:'#888'}
+    ]});
   });
 
-  // ── X axis labels - show interval start times
-  ctx.fillStyle='#6E6E73';
-  ctx.font='9px system-ui';
-  ctx.textAlign='center';
-
-  // Show every other label if too crowded
-  const labelEvery=N>30?2:1;
-  activeIntervals.forEach(({inter},i)=>{
-    if(i%labelEvery!==0) return;
-    // Center label under middle of bar
-    const slotX=PAD.left+(i/N)*plotW;
-    const centerX=slotX+slotW/2;
-    const label=inter.substring(0,5);
-    ctx.save();
-    ctx.translate(centerX, H-PAD.bot+8);
-    ctx.rotate(-Math.PI/4);
-    ctx.textAlign='right';
-    ctx.fillStyle='#6E6E73';
-    ctx.font='9px system-ui';
-    ctx.fillText(label,0,0);
-    ctx.restore();
+  return _renderDayHistogram(el,{
+    activeIntervals,vals,hpSets,hpWindows,
+    colorNormal:'#2E86DE',colorHP:'#F39C12',
+    yTitle:'Cantidad de Vehículos',height:520
   });
-
-  // ── Turno separator lines + label
-  let prevT=-1;
-  activeIntervals.forEach(({t},i)=>{
-    if(t!==prevT&&prevT>=0){
-      const x=PAD.left+(i/N)*plotW+barOffset;
-      // Shaded gap
-      ctx.fillStyle='rgba(0,0,0,0.04)';
-      ctx.fillRect(x-3,PAD.top,6,plotH);
-      // Dashed line
-      ctx.strokeStyle='rgba(0,0,0,0.2)';
-      ctx.lineWidth=1.5;
-      ctx.setLineDash([5,4]);
-      ctx.beginPath();ctx.moveTo(x,PAD.top);ctx.lineTo(x,PAD.top+plotH);ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    prevT=t;
-  });
-
-  // ── Eje X line
-  ctx.strokeStyle='rgba(0,0,0,0.2)';
-  ctx.lineWidth=1;
-  ctx.beginPath();
-  ctx.moveTo(PAD.left,PAD.top+plotH);
-  ctx.lineTo(PAD.left+plotW,PAD.top+plotH);
-  ctx.stroke();
-
-  // ── Legend bottom
-  const legY=H-12;
-  let legX=PAD.left;
-  ctx.fillStyle=BAR_NORMAL;ctx.fillRect(legX,legY-8,14,10);
-  ctx.fillStyle='#555';ctx.font='10px system-ui';ctx.textAlign='left';
-  ctx.fillText('Intervalo',legX+17,legY);
-  legX+=80;
-  ctx.fillStyle=BAR_HP;ctx.fillRect(legX,legY-8,14,10);
-  ctx.fillStyle='#555';ctx.fillText('Hora punta',legX+17,legY);
-
-  // X axis title
-  ctx.fillStyle='#1D1D1F';
-  ctx.font='bold 10px system-ui';
-  ctx.textAlign='center';
-  ctx.fillText('Horas',PAD.left+plotW/2,H-4);
 }
+
 
 function drawHistogram(canvas, acc, aveh){
   const W=canvas.parentElement.offsetWidth||600;
@@ -3415,7 +3120,7 @@ function renderGraficas(){
   </tr>`;
   html+=`</tbody></table></div>
       <div style="flex:1;min-width:300px;position:relative;height:220px">
-        <canvas id="chart-g1"></canvas>
+        <div id="chart-g1"></div>
       </div>
     </div>
   </div>`;
@@ -3483,7 +3188,7 @@ function renderGraficas(){
   html+=`<td style="padding:6px 8px;text-align:center;color:white;font-weight:700">${totSimpleGrand}</td></tr>`;
   html+=`</tbody></table></div>
       <div style="flex:1;min-width:300px;position:relative;height:280px">
-        <canvas id="chart-g2"></canvas>
+        <div id="chart-g2"></div>
       </div>
     </div>
   </div>`;
@@ -3563,7 +3268,7 @@ function renderGraficas(){
   html+=`</tbody></table>`;
   html+=`</div>
       <div style="flex:1;min-width:300px;position:relative;height:280px">
-        <canvas id="chart-g3"></canvas>
+        <div id="chart-g3"></div>
       </div>
     </div>
   </div>`;
@@ -3627,7 +3332,7 @@ function renderGraficas(){
     activeTurnos.forEach(t=>{ const pd=peatByTurno[t]; const tot=pd?Object.values(pd).reduce((s,v)=>s+v,0):0; html+=`<td style="padding:6px 8px;text-align:center;color:white;font-weight:700">${tot}</td>`; });
     html+=`<td style="padding:6px 8px;text-align:center;color:white;font-weight:700">${peatGrandTot}</td></tr>`;
     html+=`</tbody></table></div>
-        <div style="flex:1;min-width:280px;position:relative;height:240px"><canvas id="chart-g4"></canvas></div>
+        <div style="flex:1;min-width:280px;position:relative;height:240px"><div id="chart-g4"></div></div>
       </div></div>`;
 
     // Store for draw
@@ -3675,7 +3380,7 @@ function renderGraficas(){
     html+=`<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue);background:var(--blue-lt);border-bottom:1px solid var(--border-lt)">${rowTot}</td></tr>`;
   });
   html+=`</tbody></table></div>
-      <div style="flex:1;min-width:280px;position:relative;height:260px"><canvas id="chart-g5"></canvas></div>
+      <div style="flex:1;min-width:280px;position:relative;height:260px"><div id="chart-g5"></div></div>
     </div></div>`;
 
   // ── GRÁFICA 6: Vehículos vs Peatones por turno
@@ -3707,7 +3412,7 @@ function renderGraficas(){
       </tr>`;
     });
     html+=`</tbody></table></div>
-        <div style="flex:1;min-width:280px;position:relative;height:240px"><canvas id="chart-g6"></canvas></div>
+        <div style="flex:1;min-width:280px;position:relative;height:240px"><div id="chart-g6"></div></div>
       </div></div>`;
     window._vsPeatData=vsPeatData;
   }
@@ -3716,27 +3421,24 @@ function renderGraficas(){
   document.getElementById('graficas-sub').textContent=
     `Basadas en HP — ${S.gen.inter||''} · ${S.gen.dia||''}`;
 
-  setTimeout(()=>{
-    drawGrafica1(vehByTurno, turnosActG);
-    drawGrafica2(vehChartData, turnosActG);
-    drawGrafica3(tipoChartData, turnosActG);
-    if(window._peatChartData) drawGrafica4(window._peatChartData, window._peatActiveTurnos||[]);
-    drawGrafica5(accChartData, turnosActG);
-    if(window._vsPeatData) drawGrafica6(window._vsPeatData);
-  }, 80);
+  // Los div de cada gráfica se acaban de insertar recién arriba; ApexCharts
+  // destruye instancias previas antes de crear las nuevas para no acumular
+  // gráficas fantasma cada vez que se recalcula.
+  _apexInstances.forEach(c=>{ try{c.destroy();}catch(ex){} });
+  _apexInstances=[];
+  drawGrafica1(vehByTurno, turnosActG);
+  drawGrafica2(vehChartData, turnosActG);
+  drawGrafica3(tipoChartData, turnosActG);
+  if(window._peatChartData) drawGrafica4(window._peatChartData, window._peatActiveTurnos||[]);
+  drawGrafica5(accChartData, turnosActG);
+  if(window._vsPeatData) drawGrafica6(window._vsPeatData);
 }
+let _apexInstances=[];
 
 // ── CHART 1: Barras dobles Veh/h vs UCP/h por turno
 function drawGrafica1(vehByTurno, turnosActG){
-  const canvas=document.getElementById('chart-g1');
-  if(!canvas) return;
-  const W=Math.max(300,canvas.parentElement.clientWidth||400);
-  const H=220;
-  canvas.width=W; canvas.height=H;
-  canvas.style.width=W+'px'; canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
-
+  const el=document.getElementById('chart-g1');
+  if(!el) return;
   const groups=[];
   S.hpGlobal.forEach((hpG,t)=>{
     if(S.turnos[t]?.activo===false||hpG.row<0) return;
@@ -3744,382 +3446,155 @@ function drawGrafica1(vehByTurno, turnosActG){
   });
   if(!groups.length) return;
 
-  const PAD={top:30,right:16,bot:55,left:55};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
-  const maxVal=Math.max(...groups.flatMap(g=>[g.simple,g.ucp]),1)*1.15;
-  const N=groups.length;
-  const groupW=plotW/N;
-  const barW=Math.min(groupW*0.3,35);
-
-  // Grid
-  ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=0.5;
-  for(let g=0;g<=4;g++){
-    const y=PAD.top+plotH*(1-g/4);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxVal*g/4).toLocaleString(),PAD.left-4,y+3);
-  }
-
-  groups.forEach((g,i)=>{
-    const cx=PAD.left+i*groupW+groupW/2;
-    // Simple bar
-    const bh1=(g.simple/maxVal)*plotH;
-    const x1=cx-barW-2;
-    ctx.fillStyle='#2E86DE';
-    ctx.fillRect(x1,PAD.top+plotH-bh1,barW,bh1);
-    ctx.fillStyle='#1A5FA8';
-    ctx.font='bold 10px system-ui';ctx.textAlign='center';
-    ctx.fillText(g.simple.toLocaleString(),x1+barW/2,PAD.top+plotH-bh1-4);
-
-    // UCP bar
-    const bh2=(g.ucp/maxVal)*plotH;
-    const x2=cx+2;
-    ctx.fillStyle='#1A3A6B';
-    ctx.fillRect(x2,PAD.top+plotH-bh2,barW,bh2);
-    ctx.fillStyle='#1A3A6B';
-    ctx.font='bold 10px system-ui';ctx.textAlign='center';
-    ctx.fillText(g.ucp.toLocaleString(),x2+barW/2,PAD.top+plotH-bh2-4);
-
-    // Label
-    ctx.fillStyle='#1D1D1F';ctx.font='bold 10px system-ui';ctx.textAlign='center';
-    ctx.fillText(g.label,cx,H-PAD.bot+14);
-    ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';
-    ctx.fillText(g.hora,cx,H-PAD.bot+26);
+  const chart=new ApexCharts(el,{
+    chart:{type:'bar',height:240,fontFamily:'inherit',toolbar:{show:false}},
+    series:[
+      {name:'Veh/h (Simple)',data:groups.map(g=>g.simple)},
+      {name:'UCP/h',data:groups.map(g=>g.ucp)}
+    ],
+    xaxis:{categories:groups.map(g=>[g.label,g.hora]),labels:{style:{fontSize:'10px'}}},
+    yaxis:{title:{text:'Volumen (veh/h · UCP/h)',style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}},
+    colors:['#2E86DE','#1A3A6B'],
+    plotOptions:{bar:{columnWidth:'55%',borderRadius:3,dataLabels:{position:'top'}}},
+    dataLabels:{enabled:true,formatter:v=>v.toLocaleString(),style:{fontSize:'9px',fontWeight:700,colors:['#1D1D1F']},offsetY:-18},
+    grid:{borderColor:'#E5E5EA',padding:{top:26}},
+    legend:{position:'top',horizontalAlign:'left',fontSize:'11px'},
+    tooltip:{y:{formatter:v=>v.toLocaleString()}}
   });
-
-  // Axis line
-  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PAD.left,PAD.top+plotH);ctx.lineTo(PAD.left+plotW,PAD.top+plotH);ctx.stroke();
-
-  // Legend
-  ctx.fillStyle='#2E86DE';ctx.fillRect(PAD.left,8,12,10);
-  ctx.fillStyle='#555';ctx.font='9px system-ui';ctx.textAlign='left';ctx.fillText('Veh/h (Simple)',PAD.left+15,17);
-  ctx.fillStyle='#1A3A6B';ctx.fillRect(PAD.left+120,8,12,10);
-  ctx.fillText('UCP/h',PAD.left+135,17);
+  chart.render();
+  _apexInstances.push(chart);
 }
 
 // ── CHART 2: Barras agrupadas por tipología vehicular
 function drawGrafica2(vehChartData, turnosActG){
-  const canvas=document.getElementById('chart-g2');
-  if(!canvas) return;
-  const W=Math.max(300,canvas.parentElement.clientWidth||500);
-  const H=280;
-  canvas.width=W; canvas.height=H;
-  canvas.style.width=W+'px'; canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
-
-  if(!vehChartData.length) return;
-  const PAD={top:30,right:16,bot:70,left:50};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
+  const el=document.getElementById('chart-g2');
+  if(!el||!vehChartData.length) return;
   const TCOLORS=['#27AE60','#E67E22','#8E44AD','#2980B9'];
-  const nT=turnosActG.length;
-  const N=vehChartData.length;
-  const groupW=plotW/N;
-  const barW=Math.min(groupW/(nT+1),22);
-  const maxVal=Math.max(...vehChartData.flatMap(d=>d.vals),1)*1.2;
-
-  // Grid
-  ctx.strokeStyle='rgba(0,0,0,0.07)';ctx.lineWidth=0.5;
-  for(let g=0;g<=4;g++){
-    const y=PAD.top+plotH*(1-g/4);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxVal*g/4),PAD.left-4,y+3);
-  }
-
-  vehChartData.forEach((veh,i)=>{
-    const cx=PAD.left+i*groupW+groupW/2;
-    const totalBarW=nT*barW+(nT-1)*2;
-    let bx=cx-totalBarW/2;
-    veh.vals.forEach((val,ti)=>{
-      const bh=val>0?(val/maxVal)*plotH:0;
-      ctx.fillStyle=TCOLORS[ti%4];
-      ctx.fillRect(bx,PAD.top+plotH-bh,barW,bh);
-      if(val>0&&barW>10){
-        ctx.fillStyle=TCOLORS[ti%4];
-        ctx.font=`bold ${Math.min(9,barW)}px system-ui`;
-        ctx.textAlign='center';
-        ctx.fillText(val,bx+barW/2,PAD.top+plotH-bh-3);
-      }
-      bx+=barW+2;
-    });
-    // X label rotated
-    ctx.save();
-    ctx.translate(cx,H-PAD.bot+8);
-    ctx.rotate(-Math.PI/4);
-    ctx.fillStyle='#1D1D1F';ctx.font='9px system-ui';ctx.textAlign='right';
-    ctx.fillText(veh.name.substring(0,10),0,0);
-    ctx.restore();
-  });
-
-  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PAD.left,PAD.top+plotH);ctx.lineTo(PAD.left+plotW,PAD.top+plotH);ctx.stroke();
-
-  // Legend
-  let legX=PAD.left;
-  turnosActG.forEach((hpG,ti)=>{
+  const series=turnosActG.map((hpG,ti)=>{
     const t=S.hpGlobal.indexOf(hpG);
-    ctx.fillStyle=TCOLORS[ti%4];ctx.fillRect(legX,8,12,10);
-    ctx.fillStyle='#555';ctx.font='9px system-ui';ctx.textAlign='left';
-    ctx.fillText(TURNO_NAMES[t],legX+15,17);
-    legX+=ctx.measureText(TURNO_NAMES[t]).width+30;
+    return {name:TURNO_NAMES[t],data:vehChartData.map(v=>v.vals[ti]||0)};
   });
+
+  const chart=new ApexCharts(el,{
+    chart:{type:'bar',height:280,fontFamily:'inherit',toolbar:{show:false}},
+    series,
+    xaxis:{categories:vehChartData.map(v=>v.name),labels:{rotate:-40,style:{fontSize:'9px'}}},
+    yaxis:{title:{text:'N° de vehículos',style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}},
+    colors:TCOLORS,
+    plotOptions:{bar:{columnWidth:'60%',borderRadius:3,dataLabels:{position:'top'}}},
+    dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:700,colors:['#1D1D1F']},offsetY:-16},
+    grid:{borderColor:'#E5E5EA',padding:{top:26}},
+    legend:{position:'top',horizontalAlign:'left',fontSize:'11px'},
+    tooltip:{y:{formatter:v=>v+' veh'}}
+  });
+  chart.render();
+  _apexInstances.push(chart);
 }
 
 // ── CHART 3: Barras agrupadas tipo de servicio con %
 function drawGrafica3(tipoChartData, turnosActG){
-  const canvas=document.getElementById('chart-g3');
-  if(!canvas) return;
-  const W=Math.max(300,canvas.parentElement.clientWidth||400);
-  const H=280;
-  canvas.width=W; canvas.height=H;
-  canvas.style.width=W+'px'; canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
-
-  const PAD={top:30,right:16,bot:60,left:50};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
-  const nT=turnosActG.length;
-  const N=tipoChartData.length;
-  const groupW=plotW/N;
-  const barW=Math.min(groupW/(nT+1),30);
-  const maxVal=Math.max(...tipoChartData.flatMap(d=>d.vals),1)*1.25;
+  const el=document.getElementById('chart-g3');
+  if(!el) return;
   const TCOLORS_G=['#27AE60','#E67E22','#8E44AD','#2980B9'];
-
-  // Turno totals for % calc
   const turnoTotals=turnosActG.map(hpG=>hpG.totSistema||1);
-
-  // Grid
-  ctx.strokeStyle='rgba(0,0,0,0.07)';ctx.lineWidth=0.5;
-  for(let g=0;g<=4;g++){
-    const y=PAD.top+plotH*(1-g/4);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxVal*g/4),PAD.left-4,y+3);
-  }
-
-  tipoChartData.forEach((tipo,i)=>{
-    const cx=PAD.left+i*groupW+groupW/2;
-    const totalBarW=nT*barW+(nT-1)*3;
-    let bx=cx-totalBarW/2;
-
-    tipo.vals.forEach((val,ti)=>{
-      const bh=val>0?(val/maxVal)*plotH:0;
-      const y=PAD.top+plotH-bh;
-      ctx.fillStyle=TCOLORS_G[ti%4];
-      ctx.fillRect(bx,y,barW,bh);
-      if(val>0){
-        // Value
-        ctx.fillStyle='#1D1D1F';
-        ctx.font=`bold ${Math.min(10,barW)}px system-ui`;
-        ctx.textAlign='center';
-        ctx.fillText(val,bx+barW/2,y-14);
-        // Percent in magenta
-        const pct=((val/turnoTotals[ti])*100).toFixed(0)+'%';
-        ctx.fillStyle='#C0392B';
-        ctx.font=`bold ${Math.min(9,barW)}px system-ui`;
-        ctx.fillText(pct,bx+barW/2,y-4);
-      }
-      bx+=barW+3;
-    });
-
-    // X label
-    ctx.fillStyle=tipo.color;ctx.font='bold 10px system-ui';ctx.textAlign='center';
-    ctx.fillText(tipo.name,cx,H-PAD.bot+14);
-  });
-
-  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PAD.left,PAD.top+plotH);ctx.lineTo(PAD.left+plotW,PAD.top+plotH);ctx.stroke();
-
-  // Legend
-  let legX=PAD.left;
-  turnosActG.forEach((hpG,ti)=>{
+  const series=turnosActG.map((hpG,ti)=>{
     const t=S.hpGlobal.indexOf(hpG);
-    ctx.fillStyle=TCOLORS_G[ti%4];ctx.fillRect(legX,8,12,10);
-    ctx.fillStyle='#555';ctx.font='9px system-ui';ctx.textAlign='left';
-    ctx.fillText(TURNO_NAMES[t],legX+15,17);
-    legX+=ctx.measureText(TURNO_NAMES[t]).width+30;
+    return {name:TURNO_NAMES[t],data:tipoChartData.map(tp=>tp.vals[ti]||0)};
   });
+
+  const chart=new ApexCharts(el,{
+    chart:{type:'bar',height:280,fontFamily:'inherit',toolbar:{show:false}},
+    series,
+    xaxis:{categories:tipoChartData.map(tp=>tp.name),labels:{style:{fontSize:'10px',fontWeight:600}}},
+    yaxis:{title:{text:'N° de vehículos',style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}},
+    colors:TCOLORS_G,
+    plotOptions:{bar:{columnWidth:'60%',borderRadius:3,dataLabels:{position:'top'}}},
+    dataLabels:{
+      enabled:true,
+      formatter:(val,opts)=>val>0?`${val} (${Math.round(val/turnoTotals[opts.seriesIndex]*100)}%)`:'',
+      style:{fontSize:'9px',fontWeight:700,colors:['#1D1D1F']},
+      offsetY:-16
+    },
+    grid:{borderColor:'#E5E5EA',padding:{top:26}},
+    legend:{position:'top',horizontalAlign:'left',fontSize:'11px'},
+    tooltip:{y:{formatter:v=>v+' veh'}}
+  });
+  chart.render();
+  _apexInstances.push(chart);
 }
 
 function drawGrafica4(peatChartData, turnosActG){
-  const canvas=document.getElementById('chart-g4');
-  if(!canvas||!peatChartData.length) return;
-  const W=Math.max(280,canvas.parentElement.clientWidth||400);
-  const H=240;
-  canvas.width=W;canvas.height=H;canvas.style.width=W+'px';canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
-  const PAD={top:30,right:16,bot:55,left:50};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
-  const CAT_COLORS=['#2980B9','#27AE60','#E67E22','#8E44AD'];
-  const nT=turnosActG.length;
-  const N=peatChartData.length;
-  const groupW=plotW/N;
-  const barW=Math.min(groupW/(nT+1),25);
-  const maxVal=Math.max(...peatChartData.flatMap(d=>d.vals),1)*1.2;
+  const el=document.getElementById('chart-g4');
+  if(!el||!peatChartData.length) return;
   const TCOLORS=['#27AE60','#E67E22','#8E44AD','#2980B9'];
+  // Aquí turnosActG ya es un array de índices de turno (t), no de objetos hpG
+  const series=turnosActG.map((t,ti)=>({name:TURNO_NAMES[t],data:peatChartData.map(c=>c.vals[ti]||0)}));
 
-  ctx.strokeStyle='rgba(0,0,0,0.07)';ctx.lineWidth=0.5;
-  for(let g=0;g<=4;g++){
-    const y=PAD.top+plotH*(1-g/4);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxVal*g/4),PAD.left-4,y+3);
-  }
-  peatChartData.forEach((cat,i)=>{
-    const cx=PAD.left+i*groupW+groupW/2;
-    const totalBW=nT*barW+(nT-1)*2;
-    let bx=cx-totalBW/2;
-    cat.vals.forEach((val,ti)=>{
-      const bh=val>0?(val/maxVal)*plotH:0;
-      ctx.fillStyle=TCOLORS[ti%4];
-      ctx.fillRect(bx,PAD.top+plotH-bh,barW,bh);
-      if(val>0&&barW>8){
-        ctx.fillStyle=TCOLORS[ti%4];ctx.font=`bold ${Math.min(9,barW)}px system-ui`;ctx.textAlign='center';
-        ctx.fillText(val,bx+barW/2,PAD.top+plotH-bh-3);
-      }
-      bx+=barW+2;
-    });
-    ctx.fillStyle='#1D1D1F';ctx.font='bold 9px system-ui';ctx.textAlign='center';
-    ctx.fillText(cat.name,cx,H-PAD.bot+14);
+  const chart=new ApexCharts(el,{
+    chart:{type:'bar',height:240,fontFamily:'inherit',toolbar:{show:false}},
+    series,
+    xaxis:{categories:peatChartData.map(c=>c.name),labels:{style:{fontSize:'9px',fontWeight:600}}},
+    yaxis:{title:{text:'N° de peatones',style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}},
+    colors:TCOLORS,
+    plotOptions:{bar:{columnWidth:'60%',borderRadius:3,dataLabels:{position:'top'}}},
+    dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:700,colors:['#1D1D1F']},offsetY:-16},
+    grid:{borderColor:'#E5E5EA',padding:{top:26}},
+    legend:{position:'top',horizontalAlign:'left',fontSize:'11px'},
+    tooltip:{y:{formatter:v=>v+' pax'}}
   });
-  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PAD.left,PAD.top+plotH);ctx.lineTo(PAD.left+plotW,PAD.top+plotH);ctx.stroke();
-  let legX=PAD.left;
-  turnosActG.forEach((t,ti)=>{
-    ctx.fillStyle=TCOLORS[ti%4];ctx.fillRect(legX,8,12,10);
-    ctx.fillStyle='#555';ctx.font='9px system-ui';ctx.textAlign='left';
-    ctx.fillText(TURNO_NAMES[t],legX+15,17);
-    legX+=ctx.measureText(TURNO_NAMES[t]).width+30;
-  });
+  chart.render();
+  _apexInstances.push(chart);
 }
 
 function drawGrafica5(accChartData, turnosActG){
-  const canvas=document.getElementById('chart-g5');
-  if(!canvas||!accChartData.length) return;
-  const W=Math.max(280,canvas.parentElement.clientWidth||400);
-  const H=260;
-  canvas.width=W;canvas.height=H;canvas.style.width=W+'px';canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
-  const PAD={top:30,right:16,bot:60,left:50};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
-  const nT=turnosActG.length;
-  const N=accChartData.length;
-  const groupW=plotW/N;
-  const barW=Math.min(groupW/(nT+1),28);
-  const maxVal=Math.max(...accChartData.flatMap(d=>d.vals),1)*1.2;
+  const el=document.getElementById('chart-g5');
+  if(!el||!accChartData.length) return;
   const TCOLORS=['#27AE60','#E67E22','#8E44AD','#2980B9'];
-
-  ctx.strokeStyle='rgba(0,0,0,0.07)';ctx.lineWidth=0.5;
-  for(let g=0;g<=4;g++){
-    const y=PAD.top+plotH*(1-g/4);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxVal*g/4),PAD.left-4,y+3);
-  }
-  accChartData.forEach((acc,i)=>{
-    const cx=PAD.left+i*groupW+groupW/2;
-    const totalBW=nT*barW+(nT-1)*2;
-    let bx=cx-totalBW/2;
-    acc.vals.forEach((val,ti)=>{
-      const bh=val>0?(val/maxVal)*plotH:0;
-      const y=PAD.top+plotH-bh;
-      ctx.fillStyle=TCOLORS[ti%4];
-      ctx.fillRect(bx,y,barW,bh);
-      if(val>0&&barW>8){
-        ctx.fillStyle='#1D1D1F';ctx.font=`bold ${Math.min(9,barW)}px system-ui`;ctx.textAlign='center';
-        ctx.fillText(val,bx+barW/2,y-3);
-      }
-      bx+=barW+2;
-    });
-    // Acceso label with color dot
-    ctx.save();
-    ctx.translate(cx,H-PAD.bot+10);
-    ctx.rotate(-Math.PI/6);
-    ctx.fillStyle=acc.color;ctx.font='bold 9px system-ui';ctx.textAlign='right';
-    ctx.fillText(acc.name,0,0);
-    ctx.restore();
-  });
-  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PAD.left,PAD.top+plotH);ctx.lineTo(PAD.left+plotW,PAD.top+plotH);ctx.stroke();
-  let legX=PAD.left;
-  turnosActG.forEach((hpG,ti)=>{
+  const series=turnosActG.map((hpG,ti)=>{
     const t=S.hpGlobal.indexOf(hpG);
-    ctx.fillStyle=TCOLORS[ti%4];ctx.fillRect(legX,8,12,10);
-    ctx.fillStyle='#555';ctx.font='9px system-ui';ctx.textAlign='left';
-    ctx.fillText(TURNO_NAMES[t],legX+15,17);
-    legX+=ctx.measureText(TURNO_NAMES[t]).width+30;
+    return {name:TURNO_NAMES[t],data:accChartData.map(a=>a.vals[ti]||0)};
   });
+
+  const chart=new ApexCharts(el,{
+    chart:{type:'bar',height:260,fontFamily:'inherit',toolbar:{show:false}},
+    series,
+    xaxis:{categories:accChartData.map(a=>a.name),labels:{rotate:-30,style:{fontSize:'9px',fontWeight:600}}},
+    yaxis:{title:{text:'N° de vehículos',style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}},
+    colors:TCOLORS,
+    plotOptions:{bar:{columnWidth:'60%',borderRadius:3,dataLabels:{position:'top'}}},
+    dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:700,colors:['#1D1D1F']},offsetY:-16},
+    grid:{borderColor:'#E5E5EA',padding:{top:26}},
+    legend:{position:'top',horizontalAlign:'left',fontSize:'11px'},
+    tooltip:{y:{formatter:v=>v+' veh'}}
+  });
+  chart.render();
+  _apexInstances.push(chart);
 }
 
 function drawGrafica6(vsPeatData){
-  const canvas=document.getElementById('chart-g6');
-  if(!canvas||!vsPeatData.length) return;
-  const W=Math.max(280,canvas.parentElement.clientWidth||400);
-  const H=240;
-  canvas.width=W;canvas.height=H;canvas.style.width=W+'px';canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
-  const PAD={top:30,right:16,bot:50,left:55};
-  const plotW=W-PAD.left-PAD.right;
-  const plotH=H-PAD.top-PAD.bot;
-  const N=vsPeatData.length;
-  const groupW=plotW/N;
-  const barW=Math.min(groupW*0.28,32);
-  const maxVal=Math.max(...vsPeatData.flatMap(d=>[d.veh,d.peat]),1)*1.2;
+  const el=document.getElementById('chart-g6');
+  if(!el||!vsPeatData.length) return;
 
-  ctx.strokeStyle='rgba(0,0,0,0.07)';ctx.lineWidth=0.5;
-  for(let g=0;g<=4;g++){
-    const y=PAD.top+plotH*(1-g/4);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+plotW,y);ctx.stroke();
-    ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxVal*g/4).toLocaleString(),PAD.left-4,y+3);
-  }
-
-  vsPeatData.forEach((d,i)=>{
-    const cx=PAD.left+i*groupW+groupW/2;
-    // Veh bar
-    const bh1=(d.veh/maxVal)*plotH;
-    const x1=cx-barW-2;
-    ctx.fillStyle='#2E86DE';
-    ctx.fillRect(x1,PAD.top+plotH-bh1,barW,bh1);
-    ctx.fillStyle='#1A5FA8';ctx.font='bold 10px system-ui';ctx.textAlign='center';
-    ctx.fillText(d.veh.toLocaleString(),x1+barW/2,PAD.top+plotH-bh1-4);
-    // Peat bar
-    if(d.peat>0){
-      const bh2=(d.peat/maxVal)*plotH;
-      const x2=cx+2;
-      ctx.fillStyle='#27AE60';
-      ctx.fillRect(x2,PAD.top+plotH-bh2,barW,bh2);
-      ctx.fillStyle='#1B6B3A';ctx.font='bold 10px system-ui';ctx.textAlign='center';
-      ctx.fillText(d.peat.toLocaleString(),x2+barW/2,PAD.top+plotH-bh2-4);
-    }
-    // Turno label
-    ctx.fillStyle='#1D1D1F';ctx.font='bold 10px system-ui';ctx.textAlign='center';
-    ctx.fillText(d.turno,cx,H-PAD.bot+14);
-    // Ratio
-    if(d.ratio!=='—'){
-      ctx.fillStyle='#6E6E73';ctx.font='9px system-ui';
-      ctx.fillText('V/P: '+d.ratio,cx,H-PAD.bot+26);
-    }
+  const chart=new ApexCharts(el,{
+    chart:{type:'bar',height:240,fontFamily:'inherit',toolbar:{show:false}},
+    series:[
+      {name:'Vehículos/h',data:vsPeatData.map(d=>d.veh)},
+      {name:'Peatones/h',data:vsPeatData.map(d=>d.peat)}
+    ],
+    xaxis:{
+      categories:vsPeatData.map(d=>d.ratio!=='—'?[d.turno,'V/P: '+d.ratio]:[d.turno]),
+      labels:{style:{fontSize:'10px'}}
+    },
+    yaxis:{title:{text:'Volumen por hora',style:{fontSize:'11px',fontWeight:600,color:'#6E6E73'}}},
+    colors:['#2E86DE','#27AE60'],
+    plotOptions:{bar:{columnWidth:'55%',borderRadius:3,dataLabels:{position:'top'}}},
+    dataLabels:{enabled:true,formatter:v=>v.toLocaleString(),style:{fontSize:'9px',fontWeight:700,colors:['#1D1D1F']},offsetY:-18},
+    grid:{borderColor:'#E5E5EA',padding:{top:26}},
+    legend:{position:'top',horizontalAlign:'left',fontSize:'11px'},
+    tooltip:{y:{formatter:v=>v.toLocaleString()}}
   });
-
-  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PAD.left,PAD.top+plotH);ctx.lineTo(PAD.left+plotW,PAD.top+plotH);ctx.stroke();
-
-  // Legend
-  ctx.fillStyle='#2E86DE';ctx.fillRect(PAD.left,8,12,10);
-  ctx.fillStyle='#555';ctx.font='9px system-ui';ctx.textAlign='left';ctx.fillText('Vehículos/h',PAD.left+15,17);
-  ctx.fillStyle='#27AE60';ctx.fillRect(PAD.left+100,8,12,10);
-  ctx.fillText('Peatones/h',PAD.left+115,17);
+  chart.render();
+  _apexInstances.push(chart);
 }
 
 function exportJSON(){
@@ -4224,6 +3699,7 @@ function showPage(p){
   if(idx>=0) tabs[idx].classList.add('active');
   if(p==='datos') populateAccesoSel();
   if(p==='peatonal') renderPeatTable();
+  if(p==='resultados' && S.hpGlobal && Object.keys(S.hp||{}).length) renderResultados();
   if(p==='graficas') renderGraficas();
   if(p==='editor') edInit();
   if(p==='export') updateProjectStatus();

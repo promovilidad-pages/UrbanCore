@@ -259,6 +259,7 @@
   .sm-btn-desc{font-size:12px;color:var(--text-sec);margin-top:2px;}
 </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.js"></script>
 </head>
 <body>
 
@@ -3849,6 +3850,13 @@ function showPage(p){
   if(p==='validacion') renderValidacion();
   if(p==='exportar') renderExportStatus();
   if(p==='metodologia') renderMetodologiaOferta();
+  // Las gráficas se calculan (y sus contenedores se crean) apenas presionas
+  // "Calcular", que puede pasar estando en otra pestaña — con el contenedor
+  // oculto (display:none) ApexCharts no anima bien la entrada ni mide el
+  // ancho real. Por eso, cada vez que entras a la pestaña "Gráficas" con
+  // datos ya calculados, se vuelven a montar para que la animación se vea
+  // siempre, no solo al tocar el checkbox de valores HP.
+  if(p==='graficas' && lastAccumResultados) renderGraficas(lastAccumResultados);
 }
 
 function renderMetodologiaOferta(){
@@ -5427,7 +5435,11 @@ function calcularResultados(){
 }
 
 // ══════════════════════════════════════════════════════
-//  GRÁFICAS — SVG nativo (sin librerías, funciona offline)
+//  GRÁFICAS — ApexCharts (vía CDN, ver <head>)
+//  Las funciones svg*() devuelven un <div> contenedor con id único y
+//  encolan su render real (montaje diferido: ApexCharts necesita que el
+//  elemento ya exista en el DOM). renderGraficas() llama _flushPendingCharts()
+//  justo después de inyectar el innerHTML con esos contenedores.
 // ══════════════════════════════════════════════════════
 function niceMax(v){
   if(!v||v<=0) return 10;
@@ -5438,139 +5450,144 @@ function niceMax(v){
 }
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+let _apexInstances=[];
+let _pendingCharts=[];
+let _chartIdSeq=0;
+// renderFn recibe el <div> ya montado en el DOM y debe devolver la instancia
+// de ApexCharts (ya con .render() llamado) para que se pueda destruir en el
+// siguiente recálculo y no acumular instancias fantasma.
+function _apexMount(renderFn){
+  const id='apexchart-'+(_chartIdSeq++);
+  _pendingCharts.push({id,renderFn});
+  return `<div id="${id}" class="apex-chart"></div>`;
+}
+function _flushPendingCharts(){
+  _apexInstances.forEach(c=>{ try{c.destroy();}catch(ex){} });
+  _apexInstances=[];
+  _pendingCharts.forEach(({id,renderFn})=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    try{
+      const chart=renderFn(el);
+      if(chart) _apexInstances.push(chart);
+    }catch(ex){
+      console.error('Error renderizando gráfica ApexCharts:',ex);
+      el.innerHTML='<div class="graf-empty">Error al generar la gráfica.</div>';
+    }
+  });
+  _pendingCharts=[];
+}
+
 // Gráfico 1: demanda vs oferta por intervalo de 15 min, con ventana HP resaltada
 function svgDemandaOferta(d){
   const ivs=d.ivsAll||[];
   if(ivs.length<2) return `<div class="graf-empty">Sin suficientes intervalos de aforo para graficar esta ventana.</div>`;
-  const W=780,H=230,mL=46,mR=14,mT=14,mB=40;
-  const iw=W-mL-mR, ih=H-mT-mB;
   const demSerie=d.demandaExpByIv||d.demandaByIv;
-  const maxV=niceMax(Math.max(1,...demSerie,...d.ofertaSerie))*1.1;
+  const ofertaSerie=d.ofertaSerie;
   const n=ivs.length;
-  const x=i=>mL+(n>1?i*(iw/(n-1)):iw/2);
-  const y=v=>mT+ih-(Math.min(v,maxV)/maxV)*ih;
-  const step=n>1?iw/(n-1):iw;
 
-  // ventana HP resaltada — cada punto marca el INICIO de su intervalo de 15 min,
-  // así que la ventana debe ir desde el punto de inicio hasta el punto que sigue
-  // al último intervalo incluido (ese es el que marca el fin real, ej. 13:45).
-  let hpRect='';
+  // cada punto marca el INICIO de su intervalo de 15 min; la ventana HP
+  // resaltada cubre hasta 4 intervalos desde d.hpIni (igual que la versión SVG)
   const idxHp=ivs.indexOf(d.hpIni);
-  if(idxHp>=0){
-    const span=Math.min(4,n-idxHp);
-    const x0=x(idxHp);
-    const x1=(idxHp+span<n)?x(idxHp+span):x(n-1)+step;
-    hpRect=`<rect x="${x0.toFixed(1)}" y="${mT}" width="${(x1-x0).toFixed(1)}" height="${ih}" fill="var(--blue)" opacity="0.08"/>
-      <text x="${((x0+x1)/2).toFixed(1)}" y="${mT+12}" text-anchor="middle" font-size="9" fill="var(--blue)" font-weight="600">HORA PUNTA</text>`;
-  }
+  const spanPts=idxHp>=0?Math.min(5,n-idxHp):0;
 
-  // gridlines Y
-  let grid='';
-  for(let g=0;g<=4;g++){
-    const v=maxV*g/4, yy=y(v);
-    grid+=`<line x1="${mL}" y1="${yy.toFixed(1)}" x2="${W-mR}" y2="${yy.toFixed(1)}" stroke="var(--border-lt)" stroke-width="1"/>
-      <text x="${mL-6}" y="${(yy+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--text-tert)">${Math.round(v)}</text>`;
-  }
-
-  const ptsOf=ivs.map((iv,i)=>`${x(i).toFixed(1)},${y(d.ofertaSerie[i]).toFixed(1)}`).join(' ');
-  const ptsDe=ivs.map((iv,i)=>`${x(i).toFixed(1)},${y(demSerie[i]).toFixed(1)}`).join(' ');
-  const areaDe=`M${x(0).toFixed(1)},${y(0).toFixed(1)} L${ptsDe.replace(/ /g,' L')} L${x(n-1).toFixed(1)},${y(0).toFixed(1)} Z`;
-
-  // labels eje X (evitar amontonamiento)
-  const labelEvery=Math.ceil(n/10);
-  let xlabels='';
-  ivs.forEach((iv,i)=>{
-    if(i%labelEvery!==0 && i!==n-1) return;
-    xlabels+=`<text x="${x(i).toFixed(1)}" y="${H-mB+14}" text-anchor="middle" font-size="9" fill="var(--text-tert)" transform="rotate(-40 ${x(i).toFixed(1)} ${H-mB+14})">${iv}</text>`;
+  const mount=_apexMount(el=>{
+    const endIdx=idxHp>=0?Math.min(idxHp+4,n-1):-1;
+    const midIdx=idxHp>=0?idxHp+Math.floor((endIdx-idxHp)/2):-1;
+    const annotations=idxHp>=0?{
+      xaxis:[
+        {
+          x:ivs[idxHp],
+          x2:ivs[endIdx],
+          fillColor:'#0066CC',opacity:0.08,
+          borderColor:'transparent'
+        },
+        {
+          x:ivs[midIdx],
+          borderColor:'transparent',
+          label:{
+            text:'HORA PUNTA',
+            orientation:'horizontal',
+            position:'top',
+            offsetY:-20,
+            borderColor:'#0066CC',
+            borderWidth:1,
+            style:{
+              color:'#0066CC',background:'#fff',fontSize:'9px',fontWeight:700,
+              padding:{left:8,right:8,top:3,bottom:3}
+            }
+          }
+        }
+      ]
+    }:{};
+    const chart=new ApexCharts(el,{
+      chart:{type:'line',height:260,fontFamily:'inherit',toolbar:{show:false},animations:{speed:400}},
+      series:[
+        {name:'Oferta (pax capacidad)',type:'line',data:ofertaSerie},
+        {name:'Demanda expandida (100%)',type:'area',data:demSerie}
+      ],
+      xaxis:{categories:ivs,labels:{rotate:-40,style:{fontSize:'9px'}},tickAmount:Math.min(10,n-1)},
+      yaxis:{labels:{formatter:v=>Math.round(v)}},
+      colors:['#0066CC','#E53935'],
+      stroke:{width:[2,3],curve:'straight'},
+      fill:{opacity:[1,0.10]},
+      markers:{size:[3,5],strokeWidth:2,strokeColors:'#fff',hover:{sizeOffset:2}},
+      grid:{borderColor:'#E5E5EA',padding:{top:24}},
+      legend:{show:false},
+      dataLabels:{
+        enabled:graf_mostrarHP && idxHp>=0,
+        formatter:(val,opts)=>{
+          const i=opts.dataPointIndex;
+          return (i>=idxHp && i<idxHp+spanPts)?Math.round(val):'';
+        },
+        style:{fontSize:'10px',fontWeight:700},
+        offsetY:-6
+      },
+      tooltip:{y:{formatter:v=>Math.ceil(v)+' pax'}},
+      annotations
+    });
+    chart.render();
+    return chart;
   });
 
-  const dotsOf=ivs.map((iv,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(d.ofertaSerie[i]).toFixed(1)}" r="2.3" fill="var(--blue)"><title>${iv} · Oferta ${Math.ceil(d.ofertaSerie[i])} pax</title></circle>`).join('');
-  const dotsDe=ivs.map((iv,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(demSerie[i]).toFixed(1)}" r="2.3" fill="#C0392B"><title>${iv} · Demanda expandida ${Math.ceil(demSerie[i])} pax</title></circle>`).join('');
-
-  // Valores exactos solo en los 5 puntos de la ventana de Hora Punta (opcional, checkbox)
-  let hpLabels='';
-  if(graf_mostrarHP && idxHp>=0){
-    const spanPts=Math.min(5,n-idxHp);
-    for(let i=idxHp;i<idxHp+spanPts;i++){
-      const xi=x(i), yOf=y(d.ofertaSerie[i]), yDe=y(demSerie[i]);
-      hpLabels+=`<text x="${xi.toFixed(1)}" y="${(yOf-7).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--blue)">${Math.round(d.ofertaSerie[i])}</text>
-        <text x="${xi.toFixed(1)}" y="${(yDe+16).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="#C0392B">${Math.round(demSerie[i])}</text>`;
-    }
-  }
-
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-    ${hpRect}${grid}
-    <path d="${areaDe}" fill="#C0392B" opacity="0.10"/>
-    <polyline points="${ptsOf}" fill="none" stroke="var(--blue)" stroke-width="2"/>
-    <polyline points="${ptsDe}" fill="none" stroke="#C0392B" stroke-width="2"/>
-    ${dotsOf}${dotsDe}
-    ${hpLabels}
-    ${xlabels}
-    <line x1="${mL}" y1="${mT}" x2="${mL}" y2="${mT+ih}" stroke="var(--border)"/>
-    <line x1="${mL}" y1="${mT+ih}" x2="${W-mR}" y2="${mT+ih}" stroke="var(--border)"/>
-  </svg>
+  return `${mount}
   <div class="graf-legend">
     <span><i style="background:var(--blue)"></i>Oferta (pax capacidad, según aforo vehicular)</span>
-    <span><i style="background:#C0392B"></i>Demanda (FOV expandida al 100% del aforo)</span>
-    <span><i style="background:var(--blue);opacity:.3"></i>Ventana hora punta</span>
+    <span><i style="background:#E53935"></i>Demanda (FOV expandida al 100% del aforo)</span>
+    ${idxHp>=0?'<span><i style="background:var(--blue);opacity:.3"></i>Ventana hora punta</span>':''}
   </div>`;
 }
 
-// Gráfico 2: diagrama de carga por paradero (curva de carga)
+// Gráfico 2: subida/bajada por paradero
 function svgCarga(d){
   const data=d.cargaData||[];
   if(!data.length) return `<div class="graf-empty">Define paraderos y activa el módulo Embarque/Desembarque para ver esta gráfica.</div>`;
   const hayDatos=data.some(p=>p.sube||p.baja);
   if(!hayDatos) return `<div class="graf-empty">Aún no hay datos de embarque/desembarque ingresados para este sentido y turno.</div>`;
 
-  const W=780,H=260,mL=46,mR=14,mT=14,mB=76;
-  const iw=W-mL-mR, ih=H-mT-mB;
-  const n=data.length;
-  const maxV=niceMax(Math.max(1,...data.map(p=>Math.max(p.sube,p.baja))))*1.2;
-  // Espaciado: tope de separación entre paraderos para que no se estiren
-  // a todo el ancho cuando hay pocos, y margen fijo para que el primero
-  // no quede pegado al eje Y.
-  const padLR=34;
-  const usable=Math.max(0,iw-padLR*2);
-  const stepCalc=n>1?Math.min(120,usable/(n-1)):0;
-  const totalWidth=stepCalc*(n-1);
-  const startX=mL+padLR+Math.max(0,(usable-totalWidth)/2);
-  const x=i=>n>1?startX+i*stepCalc:mL+iw/2;
-  const y=v=>mT+ih-(Math.min(v,maxV)/maxV)*ih;
-  const barW=Math.min(26,(n>1?stepCalc:iw*0.5)*0.32);
-
-  let grid='';
-  for(let g=0;g<=4;g++){
-    const v=maxV*g/4, yy=y(v);
-    grid+=`<line x1="${mL}" y1="${yy.toFixed(1)}" x2="${W-mR}" y2="${yy.toFixed(1)}" stroke="var(--border-lt)" stroke-width="1"/>
-      <text x="${mL-6}" y="${(yy+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--text-tert)">${Math.round(v)}</text>`;
-  }
-
+  const nombres=data.map(p=>p.nombre.length>18?p.nombre.slice(0,17)+'…':p.nombre);
+  const subeArr=data.map(p=>p.sube||0);
+  const bajaArr=data.map(p=>p.baja||0);
   const maxSube=data.reduce((m,p)=>p.sube>m.sube?p:m,data[0]);
   const maxBaja=data.reduce((m,p)=>p.baja>m.baja?p:m,data[0]);
 
-  let bars='';
-  data.forEach((p,i)=>{
-    const cx=x(i);
-    const esTopSube=p===maxSube&&p.sube>0, esTopBaja=p===maxBaja&&p.baja>0;
-    const ySube=y(p.sube), yBaja=y(p.baja);
-    bars+=`<rect x="${(cx-barW-1).toFixed(1)}" y="${ySube.toFixed(1)}" width="${barW.toFixed(1)}" height="${(y(0)-ySube).toFixed(1)}" fill="var(--green)" opacity="${esTopSube?1:0.75}"><title>${esc(p.nombre)} · Suben ${p.sube}</title></rect>
-      <rect x="${(cx+1).toFixed(1)}" y="${yBaja.toFixed(1)}" width="${barW.toFixed(1)}" height="${(y(0)-yBaja).toFixed(1)}" fill="#C0392B" opacity="${esTopBaja?1:0.75}"><title>${esc(p.nombre)} · Bajan ${p.baja}</title></rect>
-      ${p.sube>0?`<text x="${(cx-barW/2-1).toFixed(1)}" y="${(ySube-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--green)">${p.sube}</text>`:''}
-      ${p.baja>0?`<text x="${(cx+barW/2+1).toFixed(1)}" y="${(yBaja-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="#C0392B">${p.baja}</text>`:''}`;
+  const mount=_apexMount(el=>{
+    const chart=new ApexCharts(el,{
+      chart:{type:'bar',height:280,fontFamily:'inherit',toolbar:{show:false}},
+      series:[{name:'Suben',data:subeArr},{name:'Bajan',data:bajaArr}],
+      xaxis:{categories:nombres,labels:{rotate:-40,style:{fontSize:'9px'}}},
+      colors:['#1E6B3C','#C0392B'],
+      plotOptions:{bar:{columnWidth:'38%',borderRadius:3,dataLabels:{position:'center'}}},
+      dataLabels:{enabled:true,style:{fontSize:'10px',fontWeight:700,colors:['#fff']},dropShadow:{enabled:false}},
+      grid:{borderColor:'#E5E5EA'},
+      legend:{show:false},
+      tooltip:{y:{formatter:v=>v+' pax'}}
+    });
+    chart.render();
+    return chart;
   });
 
-  let xlabels='';
-  data.forEach((p,i)=>{
-    xlabels+=`<text x="${x(i).toFixed(1)}" y="${H-mB+14}" text-anchor="end" font-size="9" fill="var(--text-sec)" transform="rotate(-40 ${x(i).toFixed(1)} ${H-mB+14})">${esc(p.nombre.length>18?p.nombre.slice(0,17)+'…':p.nombre)}</text>`;
-  });
-
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-    ${grid}${bars}
-    ${xlabels}
-    <line x1="${mL}" y1="${mT}" x2="${mL}" y2="${mT+ih}" stroke="var(--border)"/>
-    <line x1="${mL}" y1="${mT+ih}" x2="${W-mR}" y2="${mT+ih}" stroke="var(--border)"/>
-  </svg>
+  return `${mount}
   <div class="graf-legend">
     <span><i style="background:var(--green)"></i>Suben</span>
     <span><i style="background:#C0392B"></i>Bajan</span>
@@ -5585,36 +5602,34 @@ function svgCarga(d){
 function svgOcupacionResumen(blocks){
   const b=blocks.filter(d=>d.ofertaTP>0);
   if(!b.length) return '';
-  const W=780,H=190,mL=40,mR=14,mT=14,mB=46;
-  const iw=W-mL-mR, ih=H-mT-mB;
-  const n=b.length;
-  const bw=Math.min(56,iw/n*0.55);
-  const gap=iw/n;
-  let grid='';
-  [0,25,50,75,100].forEach(v=>{
-    const yy=mT+ih-(v/100)*ih;
-    grid+=`<line x1="${mL}" y1="${yy}" x2="${W-mR}" y2="${yy}" stroke="var(--border-lt)" stroke-width="1"/>
-      <text x="${mL-6}" y="${yy+3}" text-anchor="end" font-size="9" fill="var(--text-tert)">${v}%</text>`;
+  const cats=b.map(d=>`${d.turno.label} · ${d.sentido.codigo}`);
+  const vals=b.map(d=>+(d.ocupRaw||0).toFixed(1));
+  const colorFor=v=>v>85?'#C0392B':v>60?'#E67E22':'#1E6B3C';
+
+  const mount=_apexMount(el=>{
+    const chart=new ApexCharts(el,{
+      chart:{type:'bar',height:230,fontFamily:'inherit',toolbar:{show:false}},
+      series:[{name:'% Ocupación',data:vals}],
+      xaxis:{categories:cats,labels:{style:{fontSize:'9px'}}},
+      yaxis:{max:100,labels:{formatter:v=>v+'%'}},
+      plotOptions:{bar:{columnWidth:'38%',borderRadius:4,distributed:true}},
+      colors:vals.map(colorFor),
+      legend:{show:false},
+      dataLabels:{enabled:true,formatter:v=>v.toFixed(1)+'%',style:{fontSize:'10px',fontWeight:700},offsetY:-18},
+      grid:{borderColor:'#E5E5EA'},
+      annotations:{
+        yaxis:[
+          {y:60,borderColor:'#E67E22',strokeDashArray:4,label:{text:'60%',style:{fontSize:'9px',color:'#E67E22',background:'transparent'}}},
+          {y:85,borderColor:'#C0392B',strokeDashArray:4,label:{text:'85%',style:{fontSize:'9px',color:'#C0392B',background:'transparent'}}}
+        ]
+      },
+      tooltip:{y:{formatter:v=>v.toFixed(1)+'%'}}
+    });
+    chart.render();
+    return chart;
   });
-  let bars='',labels='';
-  b.forEach((d,i)=>{
-    const cx=mL+gap*i+gap/2;
-    const val=Math.min(100,d.ocupPct||0);
-    const yy=mT+ih-(val/100)*ih;
-    const color=val>85?'#C0392B':val>60?'#E67E22':'var(--green)';
-    bars+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${(ih-(yy-mT)).toFixed(1)}" rx="3" fill="${color}"><title>${esc(d.turno.label)} · ${esc(d.sentido.etiqueta)} · ${(d.ocupRaw||0).toFixed(1)}%</title></rect>
-      <text x="${cx.toFixed(1)}" y="${(yy-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${color}">${(d.ocupRaw||0).toFixed(1)}%</text>`;
-    labels+=`<text x="${cx.toFixed(1)}" y="${H-mB+16}" text-anchor="middle" font-size="9" fill="var(--text-sec)">${esc(d.turno.label)}</text>
-      <text x="${cx.toFixed(1)}" y="${H-mB+28}" text-anchor="middle" font-size="9" fill="var(--text-tert)">${esc(d.sentido.codigo)}</text>`;
-  });
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-    ${grid}
-    <line x1="${mL}" y1="${mT+ih-0.6*ih}" x2="${W-mR}" y2="${mT+ih-0.6*ih}" stroke="#E67E22" stroke-width="1" stroke-dasharray="4 3"/>
-    <line x1="${mL}" y1="${mT+ih-0.85*ih}" x2="${W-mR}" y2="${mT+ih-0.85*ih}" stroke="#C0392B" stroke-width="1" stroke-dasharray="4 3"/>
-    ${bars}${labels}
-    <line x1="${mL}" y1="${mT}" x2="${mL}" y2="${mT+ih}" stroke="var(--border)"/>
-    <line x1="${mL}" y1="${mT+ih}" x2="${W-mR}" y2="${mT+ih}" stroke="var(--border)"/>
-  </svg>
+
+  return `${mount}
   <div class="graf-legend graf-legend-stack">
     <span><i style="background:var(--green)"></i><b>&lt;60% — Cómoda:</b> hay margen de capacidad, no requiere acción.</span>
     <span><i style="background:#E67E22"></i><b>60–85% — Ajustada:</b> monitorear; evaluar refuerzo de flota en esa hora punta.</span>
@@ -5627,16 +5642,29 @@ function svgRepartoModal(blocks){
   const totTP=blocks.reduce((s,d)=>s+(d.demandaExpandidaTP||0),0);
   const totTPR=blocks.reduce((s,d)=>s+(d.demandaExpandidaTPR||0),0);
   if(!S.modulos.tp||!S.modulos.tpr||(totTP+totTPR)<=0) return '';
-  const pctTP=totTP/(totTP+totTPR)*100, pctTPR=100-pctTP;
-  const W=780,H=64,mL=6,mR=6;
-  const iw=W-mL-mR;
-  const wTP=iw*pctTP/100;
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-    <rect x="${mL}" y="14" width="${iw}" height="26" rx="13" fill="var(--border-lt)"/>
-    <rect x="${mL}" y="14" width="${wTP.toFixed(1)}" height="26" rx="13" fill="var(--blue)"><title>TP: ${Math.ceil(totTP).toLocaleString()} pax (${pctTP.toFixed(1)}%)</title></rect>
-    ${pctTP>12?`<text x="${(mL+wTP/2).toFixed(1)}" y="32" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${pctTP.toFixed(0)}%</text>`:''}
-    ${pctTPR>12?`<text x="${(mL+wTP+(iw-wTP)/2).toFixed(1)}" y="32" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text-sec)">${pctTPR.toFixed(0)}%</text>`:''}
-  </svg>
+  const pctTP=+(totTP/(totTP+totTPR)*100).toFixed(1);
+  const pctTPR=+(100-pctTP).toFixed(1);
+
+  const mount=_apexMount(el=>{
+    const chart=new ApexCharts(el,{
+      chart:{type:'bar',height:90,fontFamily:'inherit',toolbar:{show:false},stacked:true},
+      series:[
+        {name:`TP — ${Math.ceil(totTP).toLocaleString()} pax`,data:[pctTP]},
+        {name:`TPR — ${Math.ceil(totTPR).toLocaleString()} pax`,data:[pctTPR]}
+      ],
+      xaxis:{categories:[''],labels:{show:false},axisTicks:{show:false},axisBorder:{show:false}},
+      yaxis:{show:false,max:100},
+      colors:['#0066CC','#E5E5EA'],
+      plotOptions:{bar:{horizontal:true,borderRadius:12,barHeight:'55%'}},
+      dataLabels:{enabled:true,formatter:v=>v+'%',style:{fontSize:'11px',fontWeight:700}},
+      legend:{position:'bottom',fontSize:'12px'},
+      grid:{show:false}
+    });
+    chart.render();
+    return chart;
+  });
+
+  return `${mount}
   <div class="graf-legend">
     <span><i style="background:var(--blue)"></i>TP — ${Math.ceil(totTP).toLocaleString()} pax</span>
     <span><i style="background:var(--border-lt);border:1px solid var(--border)"></i>TPR — ${Math.ceil(totTPR).toLocaleString()} pax</span>
@@ -5646,8 +5674,11 @@ function svgRepartoModal(blocks){
 function renderGraficas(accum){
   const el=document.getElementById('graf-content'); if(!el) return;
   const blocks=Object.values(accum);
+  _pendingCharts=[];
   if(!blocks.length){
     el.innerHTML=`<div class="card"><div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-chart-line"></i></div><div class="empty-title">Sin datos suficientes</div><div class="empty-desc">Ingresa observaciones FOV y/o datos de aforo</div></div></div>`;
+    _apexInstances.forEach(c=>{ try{c.destroy();}catch(ex){} });
+    _apexInstances=[];
     return;
   }
 
@@ -5687,6 +5718,7 @@ function renderGraficas(accum){
   });
 
   el.innerHTML=html;
+  _flushPendingCharts();
 }
 
 // ══════════════════════════════════════════════════════
