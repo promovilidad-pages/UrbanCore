@@ -423,7 +423,6 @@ async function readGeoFile(file){
 /* ── ESTADO GLOBAL ── */
 let redFeatures=[];
 let redLayer=null;
-let hitLayer=null; // capa invisible de clics — hay que borrarla en cada renderRed, si no se acumula
 let segIndex=[];          // [{fi, segId, latlngs, midLat, midLng, layer}]
 let segIndexById=new Map(); // segId → entrada de segIndex, acceso O(1) en vez de recorrer el array
 
@@ -495,10 +494,13 @@ function adjustColor(hex,amt){
 /* ── RENDER RED ── */
 function renderRed(){
   if(redLayer){map.removeLayer(redLayer);redLayer=null;}
-  if(hitLayer){map.removeLayer(hitLayer);hitLayer=null;}
   segIndex=[];
   const renderer=L.canvas({padding:0.5});
-  const hitRenderer=L.canvas({padding:0.5});
+  // La red no es interactiva (clic y hover van por el índice espacial), pero el canvas de
+  // Leaflet igual recorre todos sus tramos en cada movimiento del mouse buscando uno
+  // "interactivo". Con 50 000 tramos eso es lo que causaba los tirones: se desactiva.
+  renderer._handleMouseHover=function(e){this._fireEvent(false,e);}; // el mousemove sigue llegando al mapa
+  renderer._onClick=function(e){this._fireEvent(false,e);}; // el clic sigue llegando al mapa
   const usedIds=new Map(); // detecta colisiones (dos tramos con mismo inicio/medio/fin) y las desambigua
   const siByFi=new Map();  // fi → entrada de segIndex, para no tener que buscar (evita O(n²))
 
@@ -522,41 +524,15 @@ function renderRed(){
         segId=segId+'#'+n;
       }else usedIds.set(segId,0);
       const mid=latlngs[Math.floor(latlngs.length/2)];
-      const entry={fi,segId,latlngs,midLat:mid[0],midLng:mid[1],layer};
+      const entry={fi,segId,latlngs,midLat:mid[0],midLng:mid[1],layer,_sk:'#8e8e93|2|0.5'};
       segIndex.push(entry);
       siByFi.set(fi,entry);
     }
   }).addTo(map);
 
-  // Capa hit — gruesa e invisible, captura eventos
-  let fiCounter2=-1;
-  hitLayer=L.geoJSON({type:'FeatureCollection',features:redFeatures},{
-    renderer:hitRenderer,
-    style:()=>({color:'transparent',weight:12,opacity:0,fillOpacity:0}),
-    onEachFeature:(feature,layer)=>{
-      const fi=++fiCounter2; // mismo orden que arriba, así que coincide 1 a 1 con siByFi
-      const si=siByFi.get(fi); if(!si) return;
-      const {segId}=si;
-      // Actualizar referencia de layer al hit layer para estilos
-      si.hitLayer=layer;
-      layer.on('click',e=>{
-        L.DomEvent.stopPropagation(e);
-        if(netTool==='delete'){handleNetworkDeleteClick(segId);return;}
-        if(netTool==='draw'){drawModeClick(e.latlng);return;}
-        handleSegmentClick(segId);
-      });
-      layer.on('mouseover',()=>{
-        if(traceMode||deleteMode){
-          si.layer.setStyle({color:'#007aff',weight:3.5,opacity:1});
-        }else if(netTool==='delete'){
-          si.layer.setStyle({color:'#e2483d',weight:3.5,opacity:1});
-        }
-      });
-      layer.on('mouseout',()=>{
-        si.layer.setStyle(segmentBaseStyle(segId));
-      });
-    }
-  }).addTo(map);
+  // (Antes había una segunda capa invisible y gruesa para capturar clics y hover.
+  //  Ahora los clics y el hover se resuelven con un índice espacial: la red se dibuja
+  //  una sola vez y el mouse ya no obliga a revisar todos los tramos.)
 
   // Índice de nodos (extremos de cada tramo) para el snap del modo "Dibujar tramo"
   // + mapa segId → entrada, para no recorrer segIndex entero cada vez que se busca un segmento
@@ -567,7 +543,104 @@ function renderRed(){
     nodeIndex.push(si.latlngs[si.latlngs.length-1]);
     segIndexById.set(si.segId,si);
   });
+  hoverSi=null;
+  buildSpatialIndex();
 }
+
+/* ── ÍNDICE ESPACIAL ──
+   La red se reparte en una grilla de celdas (~165 m). Para saber qué tramo está bajo el
+   mouse, o a qué nodo engancha el modo Dibujar, solo se revisan las celdas cercanas
+   (unas decenas de tramos) en vez de toda la red. */
+const GRID_CELL=0.0015;
+const HIT_PX=8;            // tolerancia de clic/hover sobre un tramo, en píxeles
+let segGrid=new Map(), nodeGrid=new Map(), redBounds=null;
+const gridKey=(x,y)=>x*100000+y;
+function gridAdd(grid,k,v){let a=grid.get(k);if(!a){a=[];grid.set(k,a);}if(a[a.length-1]!==v)a.push(v);}
+function buildSpatialIndex(){
+  segGrid=new Map(); nodeGrid=new Map();
+  let minLat=Infinity,minLng=Infinity,maxLat=-Infinity,maxLng=-Infinity;
+  segIndex.forEach(si=>{
+    const ll=si.latlngs;
+    for(let i=0;i<ll.length;i++){
+      const p=ll[i];
+      if(p[0]<minLat)minLat=p[0];if(p[0]>maxLat)maxLat=p[0];if(p[1]<minLng)minLng=p[1];if(p[1]>maxLng)maxLng=p[1];
+      if(i===ll.length-1)break;
+      const q=ll[i+1];
+      const x0=Math.floor(Math.min(p[1],q[1])/GRID_CELL),x1=Math.floor(Math.max(p[1],q[1])/GRID_CELL);
+      const y0=Math.floor(Math.min(p[0],q[0])/GRID_CELL),y1=Math.floor(Math.max(p[0],q[0])/GRID_CELL);
+      for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)gridAdd(segGrid,gridKey(x,y),si);
+    }
+  });
+  nodeIndex.forEach(n=>gridAdd(nodeGrid,gridKey(Math.floor(n[1]/GRID_CELL),Math.floor(n[0]/GRID_CELL)),n));
+  redBounds=segIndex.length?L.latLngBounds([minLat,minLng],[maxLat,maxLng]):null;
+}
+// Celdas que cubren un cuadrado de ±tol píxeles alrededor de un punto de pantalla
+function gridCellsAround(pt,tol){
+  const c1=map.containerPointToLatLng([pt.x-tol,pt.y-tol]),c2=map.containerPointToLatLng([pt.x+tol,pt.y+tol]);
+  const x0=Math.floor(Math.min(c1.lng,c2.lng)/GRID_CELL),x1=Math.floor(Math.max(c1.lng,c2.lng)/GRID_CELL);
+  const y0=Math.floor(Math.min(c1.lat,c2.lat)/GRID_CELL),y1=Math.floor(Math.max(c1.lat,c2.lat)/GRID_CELL);
+  if((x1-x0+1)*(y1-y0+1)>900)return null; // zoom demasiado alejado para elegir un tramo
+  const keys=[];for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)keys.push(gridKey(x,y));
+  return keys;
+}
+function nearestSegAt(pt,tol){
+  const keys=gridCellsAround(pt,tol);if(!keys)return null;
+  const vistos=new Set();let best=null,minD=tol;
+  keys.forEach(k=>{
+    const arr=segGrid.get(k);if(!arr)return;
+    for(const si of arr){
+      if(vistos.has(si))continue;vistos.add(si);
+      const ll=si.latlngs;let a=map.latLngToContainerPoint(ll[0]);
+      for(let i=1;i<ll.length;i++){
+        const b=map.latLngToContainerPoint(ll[i]);
+        const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
+        const t=len2===0?0:Math.max(0,Math.min(1,((pt.x-a.x)*dx+(pt.y-a.y)*dy)/len2));
+        const d=Math.hypot(pt.x-a.x-t*dx,pt.y-a.y-t*dy);
+        if(d<minD){minD=d;best=si;}
+        a=b;
+      }
+    }
+  });
+  return best;
+}
+function nearestNodeAt(pt,tol){
+  const keys=gridCellsAround(pt,tol);if(!keys)return null;
+  let best=null,minD=tol;
+  keys.forEach(k=>{
+    const arr=nodeGrid.get(k);if(!arr)return;
+    arr.forEach(n=>{const np=map.latLngToContainerPoint(n);const d=Math.hypot(pt.x-np.x,pt.y-np.y);if(d<minD){minD=d;best=n;}});
+  });
+  return best;
+}
+
+/* ── ESTILO CON CACHÉ ── solo se redibuja un tramo si su estilo cambió de verdad */
+function setSegStyle(si,st){
+  const k=st.color+'|'+st.weight+'|'+st.opacity;
+  if(si._sk===k)return;
+  si._sk=k; si.layer.setStyle(st);
+}
+
+/* ── CLIC Y HOVER SOBRE LA RED ── (reemplazan a los eventos de la capa invisible) */
+let hoverSi=null,hoverRaf=0,hoverPt=null;
+const hoverActivo=()=>traceMode||netTool==='delete';
+function setHoverSeg(si){
+  if(si===hoverSi)return;
+  const prev=hoverSi;hoverSi=si;
+  if(prev&&segIndexById.get(prev.segId)===prev)setSegStyle(prev,segmentBaseStyle(prev.segId));
+  if(si)setSegStyle(si,netTool==='delete'?{color:'#e2483d',weight:3.5,opacity:1}:{color:'#007aff',weight:3.5,opacity:1});
+}
+map.on('mousemove',e=>{
+  if(!hoverActivo()){if(hoverSi)setHoverSeg(null);return;}
+  hoverPt=e.containerPoint;
+  if(!hoverRaf)hoverRaf=requestAnimationFrame(()=>{hoverRaf=0;if(hoverActivo())setHoverSeg(nearestSegAt(hoverPt,HIT_PX));});
+});
+map.getContainer().addEventListener('mouseleave',()=>setHoverSeg(null));
+map.on('click',e=>{
+  if(netTool==='draw'||!hoverActivo())return; // el modo Dibujar tiene su propio clic
+  const si=nearestSegAt(e.containerPoint,HIT_PX);if(!si)return;
+  if(netTool==='delete'){setHoverSeg(null);handleNetworkDeleteClick(si.segId);return;}
+  handleSegmentClick(si.segId);
+});
 
 function styleFromCandidates(candidates){
   if(!candidates||!candidates.length) return {color:'#8e8e93',weight:2,opacity:0.5};
@@ -594,7 +667,7 @@ function segmentBaseStyle(segId){
   }
   return styleFromCandidates(candidates);
 }
-function refreshSegmentStyle(segId){const si=segIndexById.get(segId);if(si)si.layer.setStyle(segmentBaseStyle(segId));}
+function refreshSegmentStyle(segId){const si=segIndexById.get(segId);if(si)setSegStyle(si,segmentBaseStyle(segId));}
 function refreshAllStyles(){
   // Antes: por cada segmento de la red, recorría TODAS las rutas buscando si lo contenían
   // (segmentos × rutas × largo de cada ruta) — con red y rutas grandes se sentía pesado.
@@ -614,7 +687,7 @@ function refreshAllStyles(){
       candidatesBySeg.set(s.segId,arr);
     });
   });
-  segIndex.forEach(si=>si.layer.setStyle(styleFromCandidates(candidatesBySeg.get(si.segId))));
+  segIndex.forEach(si=>setSegStyle(si,styleFromCandidates(candidatesBySeg.get(si.segId))));
 }
 
 /* ── CLIC EN SEGMENTO ── */
@@ -687,12 +760,8 @@ function handleNetworkDeleteClick(segId){
 /* ── Dibujar tramo nuevo (encadenado, con snap a nodos existentes) ── */
 function findSnapNode(latlngObj){
   const mp=map.latLngToContainerPoint(latlngObj);
-  let nearest=null,minD=SNAP_PX;
-  nodeIndex.forEach(n=>{
-    const np=map.latLngToContainerPoint(L.latLng(n[0],n[1]));
-    const d=Math.hypot(mp.x-np.x,mp.y-np.y);
-    if(d<minD){minD=d;nearest=n;}
-  });
+  let nearest=nearestNodeAt(mp,SNAP_PX);
+  let minD=nearest?Math.hypot(mp.x-map.latLngToContainerPoint(nearest).x,mp.y-map.latLngToContainerPoint(nearest).y):SNAP_PX;
   drawChain.forEach(pt=>{
     const np=map.latLngToContainerPoint(pt);
     const d=Math.hypot(mp.x-np.x,mp.y-np.y);
@@ -944,7 +1013,7 @@ function renderRoutesPanel(){
       e.stopPropagation();
       const r=routes.find(x=>x.id===btn.dataset.rid);if(!r)return;
       if(!confirm(`¿Eliminar "${r.nombre}" y todos sus segmentos?`))return;
-      [...r.ida,...r.vuelta].forEach(s=>{const si=segIndexById.get(s.segId);if(si)si.layer.setStyle({color:'#8e8e93',weight:2,opacity:0.5});});
+      [...r.ida,...r.vuelta].forEach(s=>{const si=segIndexById.get(s.segId);if(si)setSegStyle(si,{color:'#8e8e93',weight:2,opacity:0.5});});
       routes=routes.filter(x=>x.id!==r.id);
       if(activeRouteId===r.id)activeRouteId=routes.length?routes[routes.length-1].id:null;
       refreshAllStyles();renderRoutesPanel();updateInfoBar();
@@ -1068,7 +1137,7 @@ el('file-red').addEventListener('change',async e=>{
     if(!prep.length)throw new Error('No quedaron vías después de filtrar el archivo.');
     redFeatures=prep;
     renderRed();
-    const bounds=L.featureGroup(redLayer.getLayers()).getBounds();
+    const bounds=redBounds||L.latLngBounds([]);
     if(bounds.isValid())map.fitBounds(bounds,{padding:[30,30]});
     el('status-pill').textContent=`${redFeatures.length.toLocaleString('es-PE')} segmentos`;
     el('status-pill').classList.add('ok');
@@ -1299,7 +1368,7 @@ el('file-session').addEventListener('change',async e=>{
     }
 
     renderRed();
-    const bounds=L.featureGroup(redLayer.getLayers()).getBounds();
+    const bounds=redBounds||L.latLngBounds([]);
     if(bounds.isValid())map.fitBounds(bounds,{padding:[30,30]});
 
     let segsAntes=0, segsPerdidos=0;
