@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cobertura de Transporte — PlanCore</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <style>
+  .btn i,.mode-tab i{font-size:12px}
+  .export-menu button > span:first-child i{margin-right:6px;width:14px;text-align:center;color:var(--text-2)}
+  .proy-vias i,.rep-ico{color:var(--text-2);margin-right:4px}
   :root {
     --brand:#007aff; --brand-dark:#005ec4;
     --bg:#eef1f8; --card:#ffffff; --text:#1c1c1e; --text-2:#6e6e73;
@@ -148,7 +152,7 @@
   .den-swatch{width:28px;height:8px;border-radius:3px;flex-shrink:0}
 
   /* ── BASEMAP ── */
-  #basemap-ctrl{position:fixed;left:12px;bottom:24px;z-index:850;display:flex;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:999px;box-shadow:var(--glass-shadow-sm);padding:3px;border:1px solid var(--glass-border)}
+  #basemap-ctrl{position:fixed;left:calc(var(--panel-w) + 26px);bottom:24px;z-index:850;display:flex;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:999px;box-shadow:var(--glass-shadow-sm);padding:3px;border:1px solid var(--glass-border)}
   #basemap-ctrl button{border:none;background:transparent;font-size:11.5px;font-weight:500;color:var(--text-2);padding:5px 12px;border-radius:999px;cursor:pointer;transition:.15s}
   #basemap-ctrl button.active{background:linear-gradient(180deg, rgba(64,150,255,.95), rgba(0,110,235,.95));color:#fff;box-shadow:0 2px 8px rgba(0,122,255,.4)}
 
@@ -230,7 +234,7 @@
 <header id="app-header">
   <div class="header-left">
     <div class="breadcrumb">
-      <a href="plancore.html">‹ PlanCore</a>
+      <a href="plancore.html"><i class="fa-solid fa-chevron-left"></i> PlanCore</a>
     </div>
     <div class="header-divider"></div>
     <div class="logo">Cobertura de <span>Transporte</span></div>
@@ -238,21 +242,21 @@
   <div class="header-right">
     <span class="status-pill" id="status-pill">Sin red vial cargada</span>
     <input type="file" id="file-input" accept=".zip,.geojson,.json,.kml,.kmz">
-    <button class="btn primary" id="btn-load">🗺 Cargar red</button>
+    <button class="btn primary" id="btn-load"><i class="fa-solid fa-map"></i> Cargar red</button>
     <input type="file" id="input-rutas" accept=".zip,.geojson,.json,.kml,.kmz">
-    <button class="btn" id="btn-load-rutas" disabled>🚌 Rutas</button>
+    <button class="btn" id="btn-load-rutas" disabled><i class="fa-solid fa-bus"></i> Rutas</button>
     <div class="btn-group">
-      <button class="btn" id="btn-report" disabled title="Ver reporte de rutas">📋 Reporte</button>
-      <button class="btn" id="btn-info" title="Ver metodología">ℹ Metodología</button>
-      <button class="btn" id="btn-ruler" disabled title="Regla de medición">📏 Regla</button>
+      <button class="btn" id="btn-report" disabled title="Ver reporte de rutas"><i class="fa-solid fa-clipboard-list"></i> Reporte</button>
+      <button class="btn" id="btn-info" title="Ver metodología"><i class="fa-solid fa-circle-info"></i> Metodología</button>
+      <button class="btn" id="btn-ruler" disabled title="Regla de medición"><i class="fa-solid fa-ruler"></i> Regla</button>
     </div>
     <div class="export-wrap">
       <button class="btn" id="btn-export" disabled>Exportar ▾</button>
       <div class="export-menu" id="export-menu">
-        <button id="export-routes">Rutas cargadas<span class="menu-sub">.geojson — líneas con Cod_Ruta</span></button>
-        <button id="export-density">Densidad<span class="menu-sub">.geojson — tramos con conteo de rutas</span></button>
+        <button id="export-routes"><span><i class="fa-solid fa-route"></i>Rutas cargadas</span><span class="menu-sub">.geojson — líneas con Cod_Ruta</span></button>
+        <button id="export-density"><span><i class="fa-solid fa-fire"></i>Densidad</span><span class="menu-sub">.geojson — tramos con conteo de rutas</span></button>
         <div class="menu-divider"></div>
-        <button id="export-scenario">Guardar escenario PlanCore<span class="menu-sub">.json — para Análisis Global</span></button>
+        <button id="export-scenario"><span><i class="fa-solid fa-floppy-disk"></i>Guardar escenario PlanCore</span><span class="menu-sub">.json — para Análisis Global</span></button>
       </div>
     </div>
   </div>
@@ -278,8 +282,8 @@
   <div class="panel-section">
     <!-- Selector de modo -->
     <div class="mode-tabs" style="margin-bottom:14px">
-      <button class="mode-tab active" data-mode="densidad">📊 Densidad de rutas</button>
-      <button class="mode-tab" data-mode="proyectos">🔍 Proyectos</button>
+      <button class="mode-tab active" data-mode="densidad"><i class="fa-solid fa-fire"></i> Densidad de rutas</button>
+      <button class="mode-tab" data-mode="proyectos"><i class="fa-solid fa-diagram-project"></i> Proyectos</button>
     </div>
 
     <!-- Modo 1: Cobertura peatonal -->
@@ -323,7 +327,7 @@
     <!-- Modo Proyectos -->
     <div id="pane-proyectos" style="display:none">
       <input type="file" id="input-proyecto" accept=".geojson,.json" style="display:none">
-      <button class="btn" id="btn-load-proyecto" style="width:100%;justify-content:center;margin-bottom:12px">🗂 Cargar proyecto (RutaCore)</button>
+      <button class="btn" id="btn-load-proyecto" style="width:100%;justify-content:center;margin-bottom:12px"><i class="fa-solid fa-folder-open"></i> Cargar proyecto (RutaCore)</button>
       <div id="proyecto-info" style="display:none">
         <div class="switch-row"><span>Mostrar proyecto</span><label class="switch"><input type="checkbox" id="chk-proyecto-layer" checked><span class="track"></span></label></div>
         <div class="switch-row"><span>Mostrar rutas</span><label class="switch"><input type="checkbox" id="chk-routes-proyecto"><span class="track"></span></label></div>
@@ -379,7 +383,7 @@
   <div id="modal-box">
     <div id="modal-hd">
       <h2>Cobertura de Transporte — Metodología</h2>
-      <button id="modal-x">✕</button>
+      <button id="modal-x"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="modal-bd">
       <div class="ms">
@@ -440,6 +444,9 @@
     const cx = t*bx, cy = t*by;
     return { dist: Math.hypot(px-cx, py-cy), t };
   }
+  // Celda de ~165 m (antes ~660 m): cada búsqueda revisa ~16 veces menos tramos
+  const SNAP_CELL_DEG = 0.0015;
+  function geomKey(coords) { return coords.map(c => c[0].toFixed(7)+','+c[1].toFixed(7)).join(';'); }
   function buildGrid(edges, cellDeg) {
     const grid = new Map();
     const keyOf = (cx,cy) => cx+'_'+cy;
@@ -535,7 +542,15 @@
     });
     const graph = { edges, hasNodeIds, availableTypes, typeField, adjacency:null, gridIdx:null };
     rebuildAdjacency(graph, excludedTypes);
-    graph.gridIdx = buildGrid(edges, 0.006);
+    graph.gridIdx = buildGrid(edges, SNAP_CELL_DEG);
+    // Índice exacto por geometría: un tramo de ruta dibujado sobre la red (RutaCore)
+    // se asigna directo a su tramo, sin buscar el más cercano.
+    graph.geomIdx = new Map();
+    edges.forEach((e, idx) => {
+      const k = geomKey(e.coords), kr = geomKey(e.coords.slice().reverse());
+      if (!graph.geomIdx.has(k)) graph.geomIdx.set(k, idx);
+      if (!graph.geomIdx.has(kr)) graph.geomIdx.set(kr, idx);
+    });
     return graph;
   }
   function rebuildAdjacency(graph, excludedTypes) {
@@ -552,18 +567,26 @@
   }
   function snapPoint(graph, lon, lat) {
     const p=[lon,lat];
-    let candidates = candidatesNear(graph.gridIdx, lon, lat, 1);
-    let ring=1;
-    while (candidates.size===0 && ring<8) { ring++; candidates = candidatesNear(graph.gridIdx, lon, lat, ring); }
-    let best=null;
-    candidates.forEach(idx => {
-      const e = graph.edges[idx];
-      if (!e.walkable) return;
-      for (let i=0;i<e.coords.length-1;i++) {
-        const { dist, t } = pointSegDist(p, e.coords[i], e.coords[i+1]);
-        if (!best || dist<best.dist) best = { dist, edgeIdx:idx, segIdx:i, t };
-      }
-    });
+    // Se amplía por anillos hasta que el mejor candidato esté garantizado como el más
+    // cercano (su distancia no supera el radio ya revisado). Máximo ≈ 5 km, como antes.
+    const gi = graph.gridIdx;
+    const cellM = gi.cellDeg * 111320 * Math.cos(toRad(lat));
+    const maxRing = Math.ceil(0.048 / gi.cellDeg);
+    const vistos = new Set();
+    let best=null, ring=1;
+    while (true) {
+      candidatesNear(gi, lon, lat, ring).forEach(idx => {
+        if (vistos.has(idx)) return; vistos.add(idx);
+        const e = graph.edges[idx];
+        if (!e.walkable) return;
+        for (let i=0;i<e.coords.length-1;i++) {
+          const { dist, t } = pointSegDist(p, e.coords[i], e.coords[i+1]);
+          if (!best || dist<best.dist) best = { dist, edgeIdx:idx, segIdx:i, t };
+        }
+      });
+      if ((best && best.dist <= ring*cellM) || ring >= maxRing) break;
+      ring++;
+    }
     if (!best) return null;
     const e = graph.edges[best.edgeIdx];
     const segLen = e.cum[best.segIdx+1]-e.cum[best.segIdx];
@@ -826,7 +849,7 @@
     const bandLines = bandLinesFromSettled(graph, settled, speedMs, bandsSec, hostSnaps);
     return { bandLines, settledCount: settled.size };
   }
-  window.IsochroneEngine = { buildGraph, rebuildAdjacency, snapPoint, computeIsochrone, computeIsochroneMulti, rasterizeBands, haversine };
+  window.IsochroneEngine = { geomKey, buildGraph, rebuildAdjacency, snapPoint, computeIsochrone, computeIsochroneMulti, rasterizeBands, haversine };
 })();
 </script>
 
@@ -852,29 +875,39 @@ const BAND_COLORS = ['#16a34a','#f59e0b','#ef4444'];
 
 /* ---- Mapa ---- */
 const map = L.map('map', { preferCanvas:true, zoomControl:false });
-const TILES = {
-  claro:   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; CARTO &copy; OpenStreetMap',subdomains:'abcd',maxZoom:20}),
-  oscuro:  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; CARTO &copy; OpenStreetMap',subdomains:'abcd',maxZoom:20}),
-  satelite:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'&copy; Esri',maxZoom:19}),
-  osm:     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:19})
+/* Mismos 4 mapas base que RutaCore: CARTO ahora exige API key y tile.openstreetmap.org
+   bloquea a las apps, por eso Claro/Oscuro/Satélite van con ArcGIS y OSM con MapTiler. */
+const MAPTILER_KEY='1bn01ccw92pBVsN2xVIz';
+const TILES={
+  claro:{urls:['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+               'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}'],
+         maxNativeZoom:16,attribution:'© OpenStreetMap contributors, © Esri'},
+  oscuro:{urls:['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'],
+          maxNativeZoom:16,attribution:'© OpenStreetMap contributors, © Esri'},
+  satelite:{urls:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+            maxNativeZoom:19,attribution:'© OpenStreetMap contributors, © Esri'},
+  osm:{urls:[`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`],
+       maxNativeZoom:20,attribution:'© OpenStreetMap contributors, © MapTiler'}
 };
-let activeBasemap = TILES.claro;
-TILES.claro.addTo(map);
+let baseTileLayers=[];
+function setBasemap(k){
+  const cfg=TILES[k];
+  baseTileLayers.forEach(l=>map.removeLayer(l));
+  baseTileLayers=cfg.urls.map((url,i)=>L.tileLayer(url,{maxZoom:20,maxNativeZoom:cfg.maxNativeZoom,attribution:i===0?cfg.attribution:undefined}).addTo(map));
+  ['claro','oscuro','satelite','osm'].forEach(j=>el('bm-'+j).classList.toggle('active',j===k));
+}
+setBasemap('claro');
 map.setView([-9.19,-75.0],6);
+map.createPane('redPane'); map.getPane('redPane').style.zIndex = 340; // red vial debajo de todo
 map.createPane('overPane'); map.getPane('overPane').style.zIndex = 350;
 map.createPane('routePane'); map.getPane('routePane').style.zIndex = 400;
 map.createPane('projectPane'); map.getPane('projectPane').style.zIndex = 410;
 map.createPane('overlapPane'); map.getPane('overlapPane').style.zIndex = 420;
-const svgRenderer = L.svg({ pane:'overPane' });
+// Densidad en canvas (antes SVG: miles de elementos en la página al desplazar el mapa)
+const densityRenderer = L.canvas({ pane:'overPane', padding:0.5 });
 
-['claro','oscuro','satelite','osm'].forEach(k=>{
-  el('bm-'+k).addEventListener('click',()=>{
-    map.removeLayer(activeBasemap);
-    activeBasemap = TILES[k];
-    activeBasemap.addTo(map);
-    ['claro','oscuro','satelite','osm'].forEach(j=>el('bm-'+j).classList.toggle('active',j===k));
-  });
-});
+['claro','oscuro','satelite','osm'].forEach(k=>el('bm-'+k).addEventListener('click',()=>setBasemap(k)));
 
 /* ---- Estado global ---- */
 let graph = null, networkLayer = null, networkBBox = null;
@@ -1037,12 +1070,16 @@ function loadNetwork(gj){
   if(networkLayer){map.removeLayer(networkLayer);networkLayer=null;}
   clearOverlays();
   rutas=[]; routeEdgeCount=new Map();
-  el('btn-load-rutas').classList.remove('primary');
+  // Estado "cargado" como en RutaCore: la red en verde y el siguiente paso (rutas) resaltado
+  el('btn-load').classList.remove('primary'); el('btn-load').classList.add('loaded');
+  el('btn-load').innerHTML='<i class="fa-solid fa-check"></i> Red cargada';
+  el('btn-load-rutas').classList.remove('loaded'); el('btn-load-rutas').classList.add('primary');
+  el('btn-load-rutas').innerHTML='<i class="fa-solid fa-bus"></i> Rutas';
   if(el('btn-report')) el('btn-report').disabled=true;
   el('sel-ruta').innerHTML='<option value="">— Selecciona una ruta —</option>';
   graph=IsochroneEngine.buildGraph(gj,{excludedTypes:new Set()});
   IsochroneEngine.rebuildAdjacency(graph,new Set());
-  networkLayer=L.geoJSON(gj,{style:{color:'#6e6e76',weight:1.3,opacity:0.8},pointToLayer:()=>null}).addTo(map);
+  networkLayer=L.geoJSON(gj,{pane:'redPane',interactive:false,style:{color:'#6e6e76',weight:1.3,opacity:0.8},pointToLayer:()=>null}).addTo(map);
   try{
     const b=networkLayer.getBounds();
     networkBBox={lonMin:b.getWest(),lonMax:b.getEast(),latMin:b.getSouth(),latMax:b.getNorth()};
@@ -1076,7 +1113,9 @@ el('input-rutas').addEventListener('change',async e=>{
   try{
     const gj=await readGeoFile(file);
     await processRoutes(gj);
-    el('btn-load-rutas').classList.add('primary');
+    el('btn-load-rutas').classList.remove('primary');
+    el('btn-load-rutas').classList.add('loaded');
+    el('btn-load-rutas').innerHTML='<i class="fa-solid fa-check"></i> Rutas cargadas';
   }catch(err){alert('Error al cargar rutas: '+err.message); console.error(err);}
   hideLoader(); e.target.value='';
 });
@@ -1316,39 +1355,9 @@ async function processRoutes(gj){
         }
       });
     } else {
-      // Rutas ya sobre la red: método de punto medio (Piura)
-      lines.forEach(line=>{
-        for(let k=0;k<line.length-1;k++){
-          const [lonA,latA]=line[k],[lonB,latB]=line[k+1];
-          const snapA=IsochroneEngine.snapPoint(graph,lonA,latA);
-          if(snapA&&snapA.distMeters<10) snaps.push(snapA);
-          const midLon=(lonA+lonB)/2,midLat=(latA+latB)/2;
-          const snapMid=IsochroneEngine.snapPoint(graph,midLon,midLat);
-          if(snapMid&&snapMid.distMeters<10){
-            // Verificar alineación: el edge snapeado debe ser paralelo al segmento
-            const e=graph.edges[snapMid.edgeIdx];
-            if(e){
-              const ec=e.coords||[];
-              if(ec.length>=2){
-                const [ex1,ey1]=ec[0],[ex2,ey2]=ec[ec.length-1];
-                const edx=ex2-ex1,edy=ey2-ey1;
-                const sdx=lonB-lonA,sdy=latB-latA;
-                const edgeLen=Math.sqrt(edx*edx+edy*edy)||1e-9;
-                const segLen=Math.sqrt(sdx*sdx+sdy*sdy)||1e-9;
-                const dot=Math.abs((edx/edgeLen)*(sdx/segLen)+(edy/edgeLen)*(sdy/segLen));
-                if(dot>0.5) edgeSet.add(snapMid.edgeIdx); // cos>0.5 → <60° de diferencia
-              } else {
-                edgeSet.add(snapMid.edgeIdx); // sin coords, confiar en distancia
-              }
-            }
-          }
-        }
-        if(line.length>0){
-          const [lon,lat]=line[line.length-1];
-          const snapLast=IsochroneEngine.snapPoint(graph,lon,lat);
-          if(snapLast&&snapLast.distMeters<10) snaps.push(snapLast);
-        }
-      });
+      // Rutas ya sobre la red: asignación exacta por geometría o punto medio (Piura)
+      edgeSet=assignLinesToEdges(lines,10);
+      snaps=null; // se calculan recién al pedir cobertura peatonal
     }
 
     edgeSet.forEach(idx=>{
@@ -1368,30 +1377,10 @@ async function processRoutes(gj){
     // Para RutaCore: calcular edgeSet por sentido
     let edgeSetIda=null, edgeSetVuelta=null;
     if(props._source==='rutacore' && props._segsIda && props._segsVuelta){
-      edgeSetIda=new Set(); edgeSetVuelta=new Set();
-      [[props._segsIda,edgeSetIda],[props._segsVuelta,edgeSetVuelta]].forEach(([segs,es])=>{
-        segs.forEach(line=>{
-          for(let k=0;k<line.length-1;k++){
-            const [lonA,latA]=line[k],[lonB,latB]=line[k+1];
-            const midLon=(lonA+lonB)/2,midLat=(latA+latB)/2;
-            const snapMid=IsochroneEngine.snapPoint(graph,midLon,midLat);
-            if(snapMid&&snapMid.distMeters<20){
-              const e=graph.edges[snapMid.edgeIdx];
-              if(e){
-                const ec=e.coords||[];
-                if(ec.length>=2){
-                  const [ex1,ey1]=ec[0],[ex2,ey2]=ec[ec.length-1];
-                  const edx=ex2-ex1,edy=ey2-ey1,sdx=lonB-lonA,sdy=latB-latA;
-                  const eL=Math.sqrt(edx*edx+edy*edy)||1e-9,sL=Math.sqrt(sdx*sdx+sdy*sdy)||1e-9;
-                  if(Math.abs((edx/eL)*(sdx/sL)+(edy/eL)*(sdy/sL))>0.5) es.add(snapMid.edgeIdx);
-                } else { es.add(snapMid.edgeIdx); }
-              }
-            }
-          }
-        });
-      });
+      edgeSetIda=assignLinesToEdges(props._segsIda,20);
+      edgeSetVuelta=assignLinesToEdges(props._segsVuelta,20);
     }
-    rutas.push({cod,color,snaps,edgeSet,edgeSetIda,edgeSetVuelta,layer,props,source});
+    rutas.push({cod,color,snaps,lines,edgeSet,edgeSetIda,edgeSetVuelta,layer,props,source});
   }
 
   const sel=el('sel-ruta');
@@ -1429,6 +1418,12 @@ el('btn-calc-cobertura').addEventListener('click', async ()=>{
   const idx=el('sel-ruta').value;
   if(idx==='') { alert('Selecciona una ruta antes de calcular.'); return; }
   const ruta=rutas[+idx];
+  if(!ruta.snaps){ // snaps de vértices, calculados solo cuando se usan
+    ruta.snaps=[];
+    ruta.lines.forEach(line=>line.forEach(([lon,lat])=>{
+      const sn=IsochroneEngine.snapPoint(graph,lon,lat); if(sn&&sn.distMeters<10) ruta.snaps.push(sn);
+    }));
+  }
   if(!ruta.snaps.length){ alert('Esta ruta no tiene puntos asignados a la red.'); return; }
   let b1=parseFloat(el('p-band1').value)||5;
   let b2=parseFloat(el('p-band2').value)||10;
@@ -1495,12 +1490,14 @@ async function computeDensity(){
     features.push({ type:'Feature', properties:{ n_rutas:val.count, rutas:val.routes.join(', ') },
       geometry:{ type:'LineString', coordinates:e.coords } });
   });
+  // Los tramos con más rutas se dibujan al final para que queden encima (rojos sobre verdes)
+  features.sort((a,b)=>a.properties.n_rutas-b.properties.n_rutas);
   densityLayer=L.geoJSON({ type:'FeatureCollection', features }, {
     style: f => ({
       color: densityColor(f.properties.n_rutas, maxCount),
       weight: 5,        // mismo grosor que las rutas en cobertura peatonal
       opacity: 0.85,
-      pane:'overPane', renderer:svgRenderer
+      pane:'overPane', renderer:densityRenderer
     }),
     onEachFeature:(f,layer)=>{
       layer.bindTooltip(`<b>${f.properties.n_rutas} ruta${f.properties.n_rutas!==1?'s':''}</b><br>${f.properties.rutas}`,{sticky:true,className:'ruler-tooltip'});
@@ -1671,7 +1668,7 @@ function buildProjectReport(){
 
   // Encabezado del proyecto
   html+=`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-    <div style="font-size:13.5px;font-weight:700;margin-bottom:4px">🏗 ${corredor.nombre}</div>
+    <div style="font-size:13.5px;font-weight:700;margin-bottom:4px"><i class="fa-solid fa-diagram-project rep-ico"></i>${corredor.nombre}</div>
     <div style="font-size:12px;color:var(--text-2)">Longitud del corredor: <b>${corredor.kmTotal.toFixed(2)} km</b></div>
     <div style="font-size:12px;color:var(--text-2)">↗ Ida: ${corredor.kmIda.toFixed(2)} km &nbsp;·&nbsp; ↙ Vuelta: ${corredor.kmVuelta.toFixed(2)} km</div>
   </div>`;
@@ -1717,7 +1714,7 @@ function buildProjectReport(){
         </div>`;
         sentTxt=`    ↗ Ida: ${it.idaDetail.pct.toFixed(1)}% (${it.idaDetail.km.toFixed(2)} km)\n    ↙ Vuelta: ${it.vueltaDetail.pct.toFixed(1)}% (${it.vueltaDetail.km.toFixed(2)} km)\n`;
       }
-      const viasHtml=it.vias.length?`<div style="font-size:11.5px;color:var(--text-2);margin-top:3px">📍 ${it.vias.join(' · ')}</div>`:'';
+      const viasHtml=it.vias.length?`<div style="font-size:11.5px;color:var(--text-2);margin-top:3px"><i class="fa-solid fa-location-dot rep-ico"></i>${it.vias.join(' · ')}</div>`:'';
       const viasTxt=it.vias.length?`    Vías: ${it.vias.join(', ')}\n`:'';
       html+=`<div style="margin-bottom:8px;padding:7px 10px;background:var(--bg);border-radius:8px;border-left:3px solid ${barColor};margin-left:8px">
         <div style="font-size:12.5px;font-weight:700">${it.cod}</div>
@@ -1852,10 +1849,12 @@ el('btn-report').addEventListener('click', ()=>{
 });
 // Los listeners del modal se registran con delegación en document para evitar
 // el problema de orden (el HTML del modal está al final del body)
-document.addEventListener('click', e=>{
+document.addEventListener('click', ev=>{
+  // Con íconos dentro de los botones, el clic puede caer en el <i>: se toma el botón contenedor
+  const e={target:ev.target.closest('button')||ev.target};
   if(e.target.id==='report-close'||e.target.id==='report-close2')
     el('report-bg').classList.remove('show');
-  if(e.target===el('report-bg'))
+  if(ev.target===el('report-bg'))
     el('report-bg').classList.remove('show');
   if(e.target.id==='report-excel'){ exportReportExcel(); return; }
   if(e.target.id==='chk-routes-proyecto'){
@@ -1869,8 +1868,8 @@ document.addEventListener('click', e=>{
   if(e.target.id==='report-copy'){
     const txt=e.target.dataset.text||'';
     navigator.clipboard.writeText(txt).then(()=>{
-      const orig=e.target.textContent; e.target.textContent='✅ Copiado';
-      setTimeout(()=>e.target.textContent=orig,1800);
+      const orig=e.target.innerHTML; e.target.innerHTML='<i class="fa-solid fa-check"></i> Copiado';
+      setTimeout(()=>e.target.innerHTML=orig,1800);
     }).catch(()=>{
       // Fallback para contextos sin clipboard API
       const ta=document.createElement('textarea');
@@ -1878,8 +1877,8 @@ document.addEventListener('click', e=>{
       document.body.appendChild(ta); ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      const orig=e.target.textContent; e.target.textContent='✅ Copiado';
-      setTimeout(()=>e.target.textContent=orig,1800);
+      const orig=e.target.innerHTML; e.target.innerHTML='<i class="fa-solid fa-check"></i> Copiado';
+      setTimeout(()=>e.target.innerHTML=orig,1800);
     });
   }
 });
@@ -1889,15 +1888,21 @@ document.addEventListener('click', e=>{
    MÓDULO PROYECTOS — análisis de superposición ruta vs corredor de proyecto
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** Construye edgeSet a partir de un array de líneas [[lon,lat],...] */
-function edgeSetFromLines(lines){
+/** Asigna líneas [[lon,lat],...] a tramos de la red.
+    1) Si la línea es exactamente un tramo de la red (export de RutaCore) → asignación directa, O(1).
+    2) Si no, método de punto medio: snap al centro de cada segmento, con verificación de alineación.
+    maxDist: distancia máxima de snap en metros (10 para rutas genéricas, 20 para RutaCore/proyectos). */
+function assignLinesToEdges(lines, maxDist){
   const es = new Set();
   lines.forEach(line=>{
+    if(line.length<2) return;
+    const exact=graph.geomIdx&&graph.geomIdx.get(IsochroneEngine.geomKey(line));
+    if(exact!==undefined){ if(graph.edges[exact].walkable) es.add(exact); return; }
     for(let k=0;k<line.length-1;k++){
       const [lonA,latA]=line[k],[lonB,latB]=line[k+1];
       const midLon=(lonA+lonB)/2, midLat=(latA+latB)/2;
       const snap=IsochroneEngine.snapPoint(graph,midLon,midLat);
-      if(snap&&snap.distMeters<20){
+      if(snap&&snap.distMeters<maxDist){
         const e=graph.edges[snap.edgeIdx];
         if(e){
           const ec=e.coords||[];
@@ -1913,6 +1918,8 @@ function edgeSetFromLines(lines){
   });
   return es;
 }
+/** Construye edgeSet a partir de un array de líneas [[lon,lat],...] (proyectos) */
+function edgeSetFromLines(lines){ return assignLinesToEdges(lines,20); }
 
 /** Km totales de un edgeSet */
 function edgeSetKm(es){
@@ -1990,7 +1997,8 @@ function processProject(gj){
     const label=corredores.length===1
       ? corredores[0].nombre
       : `${corredores.length} corredores`;
-    el('btn-load-proyecto').textContent='🗂 '+label;
+    el('btn-load-proyecto').innerHTML='<i class="fa-solid fa-folder-open"></i> ';
+    el('btn-load-proyecto').append(label);
     el('proyecto-info').style.display='block';
     if(el('btn-report')) el('btn-report').disabled=false;
     renderOverlapResults();
@@ -2066,7 +2074,7 @@ function renderCorridorBlock(corredor, items, colorDot){
         ↙ Vuelta: <b>${it.vueltaDetail.pct.toFixed(1)}%</b> (${it.vueltaDetail.km.toFixed(2)} km)
       </div>`;
     }
-    const viasHtml=it.vias.length?`<div class="proy-vias">📍 ${it.vias.join(' · ')}</div>`:'';
+    const viasHtml=it.vias.length?`<div class="proy-vias"><i class="fa-solid fa-location-dot"></i>${it.vias.join(' · ')}</div>`:'';
     return `<div class="proy-ruta" style="border-left-color:${barColor};margin-left:8px">
       <div class="proy-ruta-nombre">
         <span style="width:8px;height:8px;border-radius:50%;background:${it.color};flex-shrink:0;display:inline-block"></span>
@@ -2247,7 +2255,7 @@ function renderSingleItem(it){
     </div>`;
   }
   const viasHtml = it.vias.length
-    ? `<div class="proy-vias" style="margin-top:6px">📍 ${it.vias.join('<br>📍 ')}</div>` : '';
+    ? `<div class="proy-vias" style="margin-top:6px"><i class="fa-solid fa-location-dot"></i>${it.vias.join('<br><i class="fa-solid fa-location-dot"></i>')}</div>` : '';
   el('r-proy-rutas').innerHTML=`<div class="proy-ruta" style="border-left-color:${barColor}">
     <div class="proy-ruta-nombre">
       <span style="width:10px;height:10px;border-radius:50%;background:${it.color};flex-shrink:0;display:inline-block"></span>
@@ -2285,12 +2293,12 @@ el('modal-bg').addEventListener('click',e=>{if(e.target===el('modal-bg'))el('mod
   <div id="report-box">
     <div id="report-hd">
       <h2 id="report-title">Reporte de rutas</h2>
-      <button id="report-close">✕</button>
+      <button id="report-close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="report-bd"></div>
     <div id="report-actions">
-      <button class="btn primary" id="report-copy">📋 Copiar texto</button>
-      <button class="btn" id="report-excel">📊 Exportar Excel</button>
+      <button class="btn primary" id="report-copy"><i class="fa-solid fa-copy"></i> Copiar texto</button>
+      <button class="btn" id="report-excel"><i class="fa-solid fa-file-excel"></i> Exportar Excel</button>
       <button class="btn" id="report-close2">Cerrar</button>
     </div>
   </div>
