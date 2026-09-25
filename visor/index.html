@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UrbanCore Visor — PROMOVILIDAD / MTC</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link rel="stylesheet" href="estilos.css" />
+</head>
+<body>
+
+<header id="app-header">
+  <div class="header-left">
+    <div class="breadcrumb"><a href="../index.html"><i class="fa-solid fa-chevron-left"></i> UrbanCore</a></div>
+    <div class="header-divider"></div>
+    <div class="logo">UrbanCore <span>Visor</span></div>
+    <div class="header-divider"></div>
+    <nav id="modulos-nav"></nav>
+  </div>
+  <div class="header-right">
+    <span class="status-pill" id="status-pill">Sin red vial</span>
+    <input type="file" id="file-red" accept=".zip,.geojson,.json,.kml,.kmz" style="display:none">
+    <button class="btn primary" id="btn-load-red" title="Cargar red vial (shapefile .zip, GeoJSON, KML, KMZ)"><i class="fa-solid fa-map"></i> Red vial</button>
+    <input type="file" id="file-open" accept=".json" style="display:none">
+    <button class="btn" id="btn-open" title="Abrir proyecto de UrbanCore o sesión de RutaCore / ClasificadorVial"><i class="fa-solid fa-folder-open"></i> Abrir</button>
+    <button class="btn" id="btn-ruler" disabled title="Regla de medición"><i class="fa-solid fa-ruler"></i> Regla</button>
+    <div class="export-wrap">
+      <button class="btn" id="btn-export" disabled>Exportar ▾</button>
+      <div class="export-menu" id="export-menu"></div>
+    </div>
+  </div>
+</header>
+
+<div id="instruction"><div class="dot"></div><span id="instruction-text">Cargá una red vial o abrí un proyecto para comenzar</span></div>
+
+<!-- Panel izquierdo: aquí cada módulo pone su panel -->
+<aside id="panel"></aside>
+<!-- Panel derecho: resultados del módulo activo -->
+<div id="results"></div>
+
+<div id="map"></div>
+
+<!-- Barra de información del módulo Rutas -->
+<div id="info-bar" class="oculto">
+  <div id="trace-mode-badge"><div class="pulse"></div><span id="trace-badge-text">Trazando</span></div>
+  <div class="info-chip">Ruta: <strong id="info-ruta">—</strong></div>
+  <div class="info-sep"></div>
+  <div class="info-chip">Variante: <strong id="info-variante">—</strong></div>
+  <div class="info-sep"></div>
+  <div class="info-chip">Km: <strong id="info-km">0.00 km</strong></div>
+  <div class="info-sep"></div>
+  <div class="info-chip">Segs: <strong id="info-segs">0</strong></div>
+</div>
+
+<!-- Regla -->
+<div id="ruler-overlay"></div>
+<div id="ruler-banner">
+  <div class="ruler-pulse"></div>
+  <span><i class="fa-solid fa-ruler"></i> Regla activa — clic para medir puntos</span>
+  <button id="ruler-clear-btn">Limpiar</button>
+  <span style="opacity:.6;font-size:12px">· Apagá la regla para seguir trabajando</span>
+</div>
+<div id="ruler-total-display"><i class="fa-solid fa-ruler"></i> Total: <strong id="ruler-dist">0 m</strong></div>
+
+<div id="loader"><div class="loader-card"><div class="spinner"></div><span id="loader-text">Procesando…</span></div></div>
+
+<!-- Fondos y capas -->
+<div id="basemap-ctrl">
+  <button id="bm-claro" class="active">Claro</button>
+  <button id="bm-oscuro">Oscuro</button>
+  <button id="bm-satelite">Satélite</button>
+  <button id="bm-osm">OSM</button>
+</div>
+<button class="btn" id="capas-btn" title="Capas visibles"><i class="fa-solid fa-layer-group"></i> Capas</button>
+<div id="capas-panel"></div>
+
+<!-- Modal de reportes -->
+<div id="report-bg">
+  <div id="report-box">
+    <div id="report-hd"><h2 id="report-title">Reporte</h2><button id="report-close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="report-bd"></div>
+    <div id="report-actions"></div>
+  </div>
+</div>
+
+<!-- Librerías -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/proj4@2.10.0/dist/proj4.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.min.js"></script>
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://unpkg.com/togeojson@0.16.0/togeojson.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+<!-- Núcleo -->
+<script src="nucleo/utilidades.js"></script>
+<script src="nucleo/mapa.js"></script>
+<script src="nucleo/red.js"></script>
+<script src="nucleo/interaccion.js"></script>
+<script src="nucleo/modulos.js"></script>
+<script src="nucleo/proyecto.js"></script>
+<script src="nucleo/regla.js"></script>
+
+<!-- Módulos: para agregar uno nuevo, crear su archivo en modulos/ y sumarlo aquí -->
+<script src="modulos/rutas.js"></script>
+<script src="modulos/red.js"></script>
+<script src="modulos/jerarquia.js"></script>
+<script src="modulos/analisis.js"></script>
+<script src="modulos/cobertura.js"></script>
+
+<script src="nucleo/arranque.js"></script>
+</body>
+</html>
