@@ -25,26 +25,8 @@ html,body{height:100%;overflow:hidden}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
   color:var(--text);font-size:14px;
-  background:
-    radial-gradient(circle at 8% 12%, rgba(255,122,220,.55), transparent 42%),
-    radial-gradient(circle at 85% 8%, rgba(90,150,255,.55), transparent 45%),
-    radial-gradient(circle at 25% 85%, rgba(120,225,210,.5), transparent 48%),
-    radial-gradient(circle at 90% 80%, rgba(255,196,110,.45), transparent 45%),
-    linear-gradient(135deg, #dfe7fb 0%, #eef1f8 50%, #e6f2f0 100%);
-  background-attachment:fixed;
+  background:#e9ecf1;
 }
-body::before{
-  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:
-    radial-gradient(circle at 15% 20%, rgba(255,255,255,.5), transparent 30%),
-    radial-gradient(circle at 80% 70%, rgba(255,255,255,.35), transparent 35%);
-  animation:driftGlow 22s ease-in-out infinite alternate;
-}
-@keyframes driftGlow{
-  0%{transform:translate(0,0) scale(1)}
-  100%{transform:translate(2%,-2%) scale(1.06)}
-}
-
 /* ── HEADER ── */
 #app-header{position:fixed;top:12px;left:12px;right:12px;height:var(--header-h);background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--radius-lg);box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:1100;gap:12px}
 #app-header::before{content:'';position:absolute;inset:0;border-radius:var(--radius-lg);background:var(--glass-highlight);opacity:.5;pointer-events:none}
@@ -80,6 +62,7 @@ input[type=file]{display:none}
 
 /* ── MAPA ── */
 #map{position:fixed;top:0;left:0;right:0;bottom:0;filter:saturate(1.08)}
+#map.leaflet-container{background:#e9ecf1}  /* gris neutro mientras cargan los tiles */
 #map.cursor-trace{cursor:cell}
 #map.cursor-delete{cursor:not-allowed}
 #map.cursor-draw{cursor:crosshair}
