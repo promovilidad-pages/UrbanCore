@@ -21,12 +21,13 @@
   /* ── Panel ── */
   const panel = document.createElement('div');
   panel.innerHTML = `
-    <div class="panel-pad" style="padding-bottom:4px">
+    <div class="panel-pad rt-toolbar" style="padding-bottom:4px">
       <div class="tool-row">
         <button class="btn" id="rt-trace" title="Trazar ruta sobre la red"><i class="fa-solid fa-pen"></i> Trazar</button>
         <button class="btn" id="rt-delete" disabled title="Quitar segmentos de la ruta activa"><i class="fa-solid fa-scissors"></i> Quitar</button>
         <button class="btn" id="rt-undo" disabled title="Deshacer" style="flex:0 0 38px"><i class="fa-solid fa-rotate-left"></i></button>
         <button class="btn" id="rt-redo" disabled title="Rehacer" style="flex:0 0 38px"><i class="fa-solid fa-rotate-right"></i></button>
+        <button class="btn" id="rt-hideall" disabled title="Ocultar todas las rutas" style="flex:0 0 38px"><i class="fa-solid fa-eye"></i></button>
       </div>
     </div>
     <div class="panel-top">
@@ -158,8 +159,24 @@
     UC.ui.instruccion(deleteMode ? 'Clic sobre un segmento de la variante activa para quitarlo' : 'Clic sobre segmentos para trazar');
   });
 
+  /* ── Ocultar / mostrar todas las rutas del mapa (solo visibilidad; las rutas no se tocan) ── */
+  function actualizarBtnOcultar(){
+    const b = panel.querySelector('#rt-hideall'); if(!b) return;
+    const todasOcultas = routes.length > 0 && routes.every(r => r.vis === false);
+    b.disabled = !routes.length;
+    b.title = todasOcultas ? 'Mostrar todas las rutas' : 'Ocultar todas las rutas';
+    b.innerHTML = '<i class="fa-solid ' + (todasOcultas ? 'fa-eye-slash' : 'fa-eye') + '"></i>';
+  }
+  panel.querySelector('#rt-hideall').addEventListener('click', () => {
+    if(!routes.length) return;
+    const ocultar = routes.some(r => r.vis !== false);
+    routes.forEach(r => { r.vis = !ocultar; });
+    refreshAll(); renderRoutesPanel();
+  });
+
   /* ── Panel de rutas (igual que RutaCore) ── */
   function renderRoutesPanel(){
+    actualizarBtnOcultar();
     const list = el('routes-list');
     if(!routes.length){
       list.innerHTML = '<div class="empty-hint"><span class="ico"><i class="fa-solid fa-pen"></i></span>Agregá una ruta arriba para empezar a trazar.</div>';
