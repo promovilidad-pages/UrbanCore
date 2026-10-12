@@ -333,9 +333,7 @@
     panel, resultados:null,
     capas:[{ nombre:'Rutas', visible:() => capaVisible, cambiar:v => { capaVisible = v; refreshAll(); } }],
     exportar:() => [
-      { icono:'fa-route', titulo:'Rutas GeoJSON', sub:'.geojson — formato RutaCore (Cobertura, QGIS)', accion:exportarRutas },
-      { icono:'fa-file-export', titulo:'Sesión de RutaCore', sub:'.json — para abrir en la app RutaCore suelta',
-        accion:() => UC.ui.descargarTexto('rutacore-sesion.json', JSON.stringify({ version:1, tipo:'rutacore-session', guardadoEn:new Date().toISOString(), redFeatures:UC.red.features, routes })) }
+      { icono:'fa-route', titulo:'Rutas GeoJSON', sub:'.geojson — formato RutaCore (Cobertura, QGIS)', accion:exportarRutas }
     ],
     activar(){
       el('info-bar').classList.remove('oculto');

@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════════════════════ */
 (function(){
   /* Mismos 4 fondos que las apps: CARTO exige API key y tile.openstreetmap.org
-     bloquea a las apps, por eso Claro/Oscuro/Satélite van con ArcGIS y OSM con MapTiler. */
+     bloquea a las apps, por eso Claro/Oscuro/Satélite van con ArcGIS y OSM con el estilo "openstreetmap" de MapTiler (el mismo aspecto que openstreetmap.org). */
   const MAPTILER_KEY = '1bn01ccw92pBVsN2xVIz';
   const TILES = {
     claro:{ urls:['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
@@ -15,7 +15,7 @@
              maxNativeZoom:16, attribution:'© OpenStreetMap contributors, © Esri' },
     satelite:{ urls:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
                maxNativeZoom:19, attribution:'© OpenStreetMap contributors, © Esri' },
-    osm:{ urls:[`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`],
+    osm:{ urls:[`https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`],
           maxNativeZoom:20, attribution:'© OpenStreetMap contributors, © MapTiler' }
   };
 

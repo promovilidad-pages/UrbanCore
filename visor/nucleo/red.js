@@ -252,6 +252,7 @@
   R.establecer = function(features, opciones){
     const op = Object.assign({ emitir:true, encuadrar:true }, opciones || {});
     const idsPrevios = new Set(R.porId.keys());
+    const previos = R.porId;   // tramos de la red anterior: se reutilizan los que no cambiaron
     const habiaRed = R.segs.length > 0;
     if(capa){ map.removeLayer(capa); capa = null; }
     R.features = features;
@@ -271,6 +272,14 @@
       let segId = segIdFromLatLngs(latlngs);
       if(segId === null) return;
       if(usados.has(segId)){ const n = usados.get(segId) + 1; usados.set(segId, n); segId += '#' + n; } else usados.set(segId, 0);
+      // Borrar o dibujar un tramo ya no recrea toda la red: si el tramo es el mismo, se reutiliza su polilínea
+      const prev = previos.get(segId);
+      if(prev && prev.latlngs.length === latlngs.length){
+        prev.fi = fi; prev.latlngs = latlngs; prev.props = f.properties || {};
+        capa.addLayer(prev.layer);
+        R.segs.push(prev); R.porId.set(segId, prev); R.porFi.set(fi, prev);
+        return;
+      }
       const layer = L.polyline(latlngs, Object.assign({ renderer, interactive:false }, estiloActual));
       layer.addTo(capa);
       const si = { fi, segId, latlngs, km:UC.util.lineKm(latlngs), props:f.properties || {}, layer, _sk:k0 };

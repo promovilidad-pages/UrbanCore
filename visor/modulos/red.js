@@ -122,7 +122,13 @@
     panel, resultados:null,
     exportar:() => [{ icono:'fa-road', titulo:'Red vial GeoJSON', sub:'.geojson — red completa con tus ediciones (QGIS)', accion:() => {
       // Los tramos dibujados a mano no traen atributos: se marcan para identificarlos en QGIS
-      const features = UC.red.features.map(f => ({ type:'Feature', properties:f.properties && Object.keys(f.properties).length ? f.properties : { origen:'dibujado_rutacore' }, geometry:f.geometry }));
+      // Cada tramo sale también con su clasificación vial (atributo "jerarquia")
+      const features = UC.red.features.map((f, fi) => {
+        const si = UC.red.porFi.get(fi);
+        const props = f.properties && Object.keys(f.properties).length ? { ...f.properties } : { origen:'dibujado_rutacore' };
+        if(si && UC.jerarquia) props.jerarquia = UC.jerarquia.tipo(si.segId);
+        return { type:'Feature', properties:props, geometry:f.geometry };
+      });
       UC.ui.descargarTexto('urbancore-red-vial.geojson', JSON.stringify({ type:'FeatureCollection', features }));
     } }],
     activar(){ actualizarPanel(); setHerramienta(herramienta); },

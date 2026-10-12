@@ -257,10 +257,7 @@
     panel, resultados:null,
     capas:[{ nombre:'Vías principales', visible:() => capaVisible, cambiar:v => { capaVisible = v; redibujarTodo(); } }],
     exportar:() => [
-      { icono:'fa-layer-group', titulo:'Clasificación GeoJSON', sub:'.geojson — red clasificada para ParaderosCore', accion:exportarClasificacion },
-      { icono:'fa-file-export', titulo:'Sesión del Clasificador', sub:'.json — para abrir en ClasificadorVial suelto',
-        accion:() => UC.ui.descargarTexto('plancore-sesion-clasificador.json', JSON.stringify({ version:2, tipo:'plancore-sesion-clasificador', guardadoEn:new Date().toISOString(),
-          redFeatures:UC.red.features, clasificacionIds:[...tipos].map(([id, tipo]) => ({ id, tipo })) })) }
+      { icono:'fa-layer-group', titulo:'Clasificación GeoJSON', sub:'.geojson — red clasificada para ParaderosCore', accion:exportarClasificacion }
     ],
     activar(){
       activo = true;
