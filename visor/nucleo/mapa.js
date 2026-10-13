@@ -3,9 +3,9 @@
    NÚCLEO — MAPA: fondos, orden de capas (panes) y lienzos
    ══════════════════════════════════════════════════════════════════ */
 (function(){
-  /* Mismos 4 fondos que las apps: CARTO exige API key y tile.openstreetmap.org
-     bloquea a las apps, por eso Claro/Oscuro/Satélite van con ArcGIS y OSM con el estilo "openstreetmap" de MapTiler (el mismo aspecto que openstreetmap.org). */
-  const MAPTILER_KEY = '1bn01ccw92pBVsN2xVIz';
+  /* Mismos 4 fondos que las apps. Claro/Oscuro/Satélite van con ArcGIS y OSM con los tiles oficiales de
+     OpenStreetMap. Ojo: tile.openstreetmap.org exige que la petición traiga "Referer", así que carga al servir
+     el visor desde GitHub Pages o localhost, pero no si se abre el index.html con doble clic (file://). */
   const TILES = {
     claro:{ urls:['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
                   'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}'],
@@ -15,8 +15,8 @@
              maxNativeZoom:16, attribution:'© OpenStreetMap contributors, © Esri' },
     satelite:{ urls:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
                maxNativeZoom:19, attribution:'© OpenStreetMap contributors, © Esri' },
-    osm:{ urls:[`https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`],
-          maxNativeZoom:20, attribution:'© OpenStreetMap contributors, © MapTiler' }
+    osm:{ urls:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          maxNativeZoom:19, attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' }
   };
 
   const map = L.map('map', { zoomControl:false, preferCanvas:true, boxZoom:false }).setView([-9.19, -75.015], 6);
