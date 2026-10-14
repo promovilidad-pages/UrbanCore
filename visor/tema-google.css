@@ -1,0 +1,143 @@
+/* ═══ UrbanCore Visor — TEMA "GOOGLE" (piloto visual) ═══
+   Se carga DESPUÉS de estilos.css y solo cambia colores, bordes y sombras.
+   No toca posiciones, tamaños de paneles ni nada del JS, así que lo operativo queda igual.
+   Para volver al diseño anterior (glass):  visor/index.html?tema=glass
+
+   Bordes: por defecto gris fino (#dadce0), como Google Maps.
+   Si los quieres negros, cambia solo --g-borde a #202124 (más abajo). */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+:root{
+  --g-azul:#1a73e8; --g-azul-osc:#1765cc; --g-azul-claro:#e8f0fe; --g-azul-texto:#1967d2;
+  --g-texto:#202124; --g-texto-2:#5f6368;
+  --g-borde:#dadce0;            /* ← pon #202124 para bordes negros */
+  --g-divisor:#e8eaed; --g-hover:#f1f3f4;
+  --g-sombra:0 1px 2px rgba(60,64,67,.30), 0 2px 6px 2px rgba(60,64,67,.15);
+  --g-sombra-sm:0 1px 2px rgba(60,64,67,.30), 0 1px 3px 1px rgba(60,64,67,.15);
+
+  /* Se reutilizan las variables de estilos.css: así todo cambia a la vez */
+  --brand:var(--g-azul); --brand-dark:var(--g-azul-osc);
+  --bg:#f8f9fa; --card:#fff; --text:var(--g-texto); --text-2:var(--g-texto-2); --border:var(--g-borde);
+  --radius-sm:8px; --radius-md:8px; --radius-lg:12px;
+  --glass-bg:#fff; --glass-bg-strong:#fff; --glass-bg-soft:#fff;
+  --glass-border:var(--g-borde); --glass-border-soft:var(--g-borde);
+  --glass-blur:none; --glass-blur-soft:none;
+  --glass-shadow:var(--g-sombra); --glass-shadow-sm:var(--g-sombra-sm);
+  --glass-highlight:none;
+}
+
+/* Sin transparencias ni desenfoque en ningún lado */
+*,*::before,*::after{-webkit-backdrop-filter:none !important;backdrop-filter:none !important}
+
+body{font-family:"Roboto","Segoe UI",Arial,sans-serif;background:#f1f3f4}
+button,input,select{font-family:inherit}
+
+/* ── Mapa ── */
+#map{filter:none}
+#map.leaflet-container{background:#e8eaed}
+
+/* ── Encabezado ── */
+#app-header{background:#fff;border:1px solid var(--g-borde);border-radius:12px;box-shadow:var(--g-sombra)}
+#app-header::before{display:none}
+.header-divider{background:var(--g-borde)}
+.logo{font-weight:500;letter-spacing:0}
+.status-pill{background:#fff;border:1px solid var(--g-borde);color:var(--g-texto-2);box-shadow:none}
+.status-pill.ok{background:#e6f4ea;border-color:#ceead6;color:#188038}
+
+/* ── Botones ── */
+.btn{background:#fff;border:1px solid var(--g-borde);color:#3c4043;box-shadow:none;font-weight:500}
+.btn:hover{background:var(--g-hover);border-color:#c6c9ce;transform:none;box-shadow:var(--g-sombra-sm)}
+.btn.primary{background:var(--g-azul);border-color:var(--g-azul);color:#fff;box-shadow:none}
+.btn.primary:hover{background:var(--g-azul-osc);border-color:var(--g-azul-osc);box-shadow:var(--g-sombra-sm)}
+.btn.loaded{background:#e6f4ea;border-color:#ceead6;color:#188038}
+.btn.loaded:hover{background:#ceead6}
+.btn.mode-active,.btn-group .btn.mode-active{background:var(--g-azul-claro);border-color:var(--g-azul);color:var(--g-azul-texto);box-shadow:none}
+.btn.mode-active:hover,.btn-group .btn.mode-active:hover{background:#d2e3fc}
+.btn:disabled{opacity:.45}
+.btn-group{background:#fff;border:1px solid var(--g-borde);box-shadow:none}
+.btn-group .btn{background:transparent;border:none}
+.btn-group .btn:hover{background:var(--g-hover);box-shadow:none}
+
+/* ── Paneles ── */
+#panel,#results{background:#fff;border:1px solid var(--g-borde);border-radius:12px;box-shadow:var(--g-sombra);scrollbar-color:#bdc1c6 transparent}
+#panel::-webkit-scrollbar-thumb,#results::-webkit-scrollbar-thumb{background:#bdc1c6}
+.panel-top,.rt-toolbar{border-bottom-color:var(--g-divisor)}
+.panel-section+.panel-section,.res-section+.res-section{border-top-color:var(--g-divisor)}
+.rt-toolbar{background:#fff}
+
+/* Títulos en minúscula normal (estilo Google), sin mayúsculas separadas */
+.panel-top-title,.panel-section-title,.res-section h2,.modulo-titulo span{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--g-texto)}
+.ms h3,#legend h3,#capas-panel h3,.menu-titulo,.count-card .cl,.sel-stat .l,.rr-sentido{text-transform:none;letter-spacing:0;font-weight:500}
+.panel-section-icon,.panel-section-icon.blue{background:var(--g-azul-claro);box-shadow:none;border-radius:50%}
+.panel-section-icon.green{background:#e6f4ea}
+.panel-section-icon.purple{background:#f3e8fd}
+.modulo-titulo .ico{background:var(--g-azul-claro);border-radius:50%}
+
+/* ── Módulos, pestañas y selectores segmentados ── */
+#modulos-nav,.mode-tabs,.seg-toggle{background:var(--g-hover);border-color:transparent}
+#modulos-nav button:hover:not(:disabled){background:var(--g-divisor);color:var(--g-texto)}
+#modulos-nav button.activo,.mode-tab.active{background:var(--g-azul-claro);color:var(--g-azul-texto);box-shadow:none;font-weight:500}
+#modulos-nav button.activo:hover:not(:disabled){background:#d2e3fc;color:var(--g-azul-texto)}
+.seg-toggle button.active{background:#fff;color:var(--g-azul-texto);box-shadow:var(--g-sombra-sm)}
+
+/* ── Campos ── */
+.new-route-row input[type=text],input[type=number],select,.search-box input{background:#fff;border:1px solid var(--g-borde);border-radius:8px;color:var(--g-texto)}
+.new-route-row input[type=text]:focus,input[type=number]:focus,select:focus,.search-box input:focus{border-color:var(--g-azul);box-shadow:0 0 0 1px var(--g-azul)}
+.new-route-row input[type=text]:disabled,.search-box input:disabled{background:var(--g-hover);opacity:.7}
+.color-swatch{border:1px solid var(--g-borde);box-shadow:none}
+.switch .track{background:#bdc1c6}
+.switch input:checked+.track{background:var(--g-azul)}
+
+/* ── Lista de rutas ── */
+.route-item{background:#fff;border:1px solid var(--g-borde);border-radius:8px}
+.route-item:hover{background:var(--g-hover);border-color:#c6c9ce}
+.route-item.selected{background:var(--g-azul-claro);border-color:var(--g-azul);box-shadow:none}
+.route-move-up:hover,.route-move-down:hover{background:var(--g-divisor)}
+.var-btn{background:#fff;border:1px solid var(--g-borde);color:var(--g-texto-2)}
+.var-btn:hover,.var-btn.active-var{background:var(--g-azul-claro);border-color:var(--g-azul);color:var(--g-azul-texto)}
+.route-row:hover{background:var(--g-hover)}
+.route-row.solo{background:var(--g-azul-claro)}
+.badge{background:var(--g-hover)}
+.badge.ambas{background:var(--g-azul-claro);color:var(--g-azul-texto)}
+
+/* ── Tarjetas y listas de Análisis / Clasificador / Cobertura ── */
+.sel-stat{background:#fff;border:1px solid var(--g-borde);border-radius:8px}
+.brush-btn{background:#fff;border:1px solid var(--g-borde)}
+.brush-btn:hover{background:var(--g-hover)}
+.brush-btn.active{background:var(--g-azul-claro);border-color:var(--g-azul);box-shadow:none}
+.count-card{background:#fff;border:1px solid var(--g-borde);border-top-width:3px}
+.count-total,.proy-ruta{background:#f8f9fa}
+.search-result-row{background:#fff;border:1px solid var(--g-divisor)}
+.search-result-row:hover{background:var(--g-hover)}
+.search-result-count{background:var(--g-hover);border-color:var(--g-borde)}
+.btn-clasificar-todos{background:#fff;border-color:var(--g-borde)}
+.btn-clasificar-todos:not(:disabled):hover{background:var(--g-hover)}
+.proy-bar{background:var(--g-divisor)}
+
+/* ── Barras y tarjetas flotantes ── */
+#info-bar,#instruction,#basemap-ctrl,#ruler-total-display,#legend,#capas-panel,.loader-card,.export-menu{background:#fff;border:1px solid var(--g-borde);box-shadow:var(--g-sombra)}
+#capas-panel,#legend,.export-menu{border-radius:12px}
+.info-sep{background:var(--g-borde)}
+#trace-mode-badge{background:var(--g-azul);box-shadow:none}
+#basemap-ctrl button:hover:not(.active){background:var(--g-hover)}
+#basemap-ctrl button.active{background:var(--g-azul-claro);color:var(--g-azul-texto);box-shadow:none}
+#ruler-banner{background:#323232;border:none;box-shadow:var(--g-sombra)}
+#legend h3,#capas-panel h3{font-size:11px;color:var(--g-texto-2)}
+.leg-divider,.menu-divider,.export-menu .menu-divider{background:var(--g-divisor)}
+#capas-panel .grupo+.grupo{border-top-color:var(--g-divisor)}
+.export-menu button:hover{background:var(--g-hover)}
+
+/* ── Ventanas emergentes ── */
+#loader{background:rgba(32,33,36,.35)}
+#modal-bg,#report-bg{background:rgba(32,33,36,.6)}
+#modal-box,#report-box{background:#fff;border:1px solid var(--g-borde);border-radius:12px;box-shadow:var(--g-sombra)}
+#modal-hd,#report-hd,#report-actions,.rr-ruta,.mhr{border-color:var(--g-divisor)}
+#modal-x,#report-close{background:transparent}
+#modal-x:hover,#report-close:hover{background:var(--g-hover)}
+
+/* ── Controles de Leaflet ── */
+.leaflet-control-zoom{border:1px solid var(--g-borde) !important;border-radius:8px !important;box-shadow:var(--g-sombra-sm) !important}
+.leaflet-control-zoom a{background:#fff !important;color:var(--g-texto-2) !important;border:none !important}
+.leaflet-control-zoom a.leaflet-control-zoom-in{border-bottom:1px solid var(--g-borde) !important}
+.leaflet-control-zoom a:hover{background:var(--g-hover) !important;color:var(--g-texto) !important}
+.leaflet-control-attribution{background:rgba(255,255,255,.9) !important;border-radius:8px 0 0 0}

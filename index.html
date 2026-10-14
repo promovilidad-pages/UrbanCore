@@ -240,6 +240,68 @@ body::before{
 .footer-l strong{color:var(--text2);font-weight:600}
 .footer-r{font-size:11.5px;color:var(--text3);text-align:right;line-height:1.5}
 </style>
+<style id="tema-google">
+/* ═══ TEMA "GOOGLE" (piloto visual) ═══
+   Solo cambia colores, bordes y sombras. No toca tamaños, posiciones ni el JS del carrusel.
+   Para volver al diseño anterior (glass): index.html?tema=glass
+   Bordes: gris fino por defecto; para bordes negros cambia --g-borde a #202124. */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+:root{
+  --g-azul:#1a73e8; --g-azul-osc:#1765cc; --g-azul-claro:#e8f0fe; --g-azul-texto:#1967d2;
+  --g-texto:#202124; --g-texto-2:#5f6368;
+  --g-borde:#dadce0;            /* ← pon #202124 para bordes negros */
+  --g-divisor:#e8eaed; --g-hover:#f1f3f4;
+  --g-sombra:0 1px 2px rgba(60,64,67,.30), 0 2px 6px 2px rgba(60,64,67,.15);
+  --g-sombra-sm:0 1px 2px rgba(60,64,67,.30), 0 1px 3px 1px rgba(60,64,67,.15);
+  --g-sombra-lg:0 1px 3px rgba(60,64,67,.30), 0 4px 8px 3px rgba(60,64,67,.15);
+
+  --blue:var(--g-azul); --blue-dark:var(--g-azul-osc);
+  --text:var(--g-texto); --text2:var(--g-texto-2); --text3:#80868b;
+  --bg:#f8f9fa; --border:var(--g-borde); --card:#fff;
+  --font:"Roboto","Segoe UI",Arial,sans-serif;
+  --glass-bg:#fff; --glass-bg-strong:#fff; --glass-bg-card:#fff; --glass-bg-soft:#fff;
+  --glass-border:var(--g-borde); --glass-border-soft:var(--g-borde);
+  --glass-blur:none; --glass-blur-soft:none;
+  --glass-shadow:var(--g-sombra); --glass-shadow-sm:var(--g-sombra-sm); --glass-shadow-lg:var(--g-sombra-lg);
+  --glass-highlight:none;
+}
+*,*::before,*::after{-webkit-backdrop-filter:none !important;backdrop-filter:none !important}
+
+/* Fondo: gris liso en vez del degradado de colores */
+body{background:#f1f3f4}
+body::before{display:none}
+
+/* Barras de arriba y de abajo */
+#topbar,#footer{background:#fff;border:1px solid var(--g-borde);box-shadow:var(--g-sombra);border-radius:16px}
+#topbar::before{display:none}
+.topbar-sep{background:var(--g-borde)}
+
+/* Texto de bienvenida */
+.hero-title{font-weight:500;letter-spacing:-1px}
+.hchip{background:#fff;border:1px solid var(--g-borde)}
+
+/* Carrusel */
+.arrow-btn{background:#fff;border:1px solid var(--g-borde);box-shadow:var(--g-sombra-sm)}
+.arrow-btn:hover{background:var(--g-azul-claro);border-color:var(--g-azul);color:var(--g-azul)}
+.mcard{background:#fff;border:1px solid var(--g-borde);border-radius:16px;box-shadow:var(--g-sombra)}
+.mcard::before{display:none}
+.mcard-media{background:#f8f9fa;border-right:1px solid var(--g-divisor)}
+.mcard-eyebrow{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500}
+.mcard-name{font-weight:500;letter-spacing:-.5px}
+.mtag{background:#fff;border:1px solid var(--g-borde)}
+.btn-ingresar{background:var(--g-azul);border:1px solid var(--g-azul);box-shadow:none;font-weight:500}
+.btn-ingresar:hover{background:var(--g-azul-osc);border-color:var(--g-azul-osc);transform:none;box-shadow:var(--g-sombra-sm)}
+.status-live{color:#188038}
+.status-dot{background:#1e8e3e}
+.dot{background:#dadce0}
+.dot.active{background:var(--g-azul)}
+</style>
+<script>
+/* ?tema=glass → quita el tema Google y vuelve al diseño anterior */
+if(new URLSearchParams(location.search).get('tema') === 'glass'){ var _tg = document.getElementById('tema-google'); if(_tg) _tg.remove(); }
+</script>
+
 </head>
 <body>
 
@@ -352,8 +414,8 @@ body::before{
 
 <!-- FOOTER -->
 <div id="footer">
-  <div class="footer-l"><strong>UrbanCore</strong> · Desarrollado por la DFPM · PROMOVILIDAD / MTC Perú</div>
-  <div class="footer-r">Christian D. Barrazueta Mancilla<br>Dirección de Fortalecimiento y Planificación de la Movilidad</div>
+  <div class="footer-l"><strong>UrbanCore</strong> · Dirección de Fortalecimiento y Planificación de la Movilidad</div>
+  <div class="footer-r">PROMOVILIDAD / MTC 2026</div>
 </div>
 
 <script>
