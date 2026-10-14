@@ -636,81 +636,107 @@
 .ed-mov-item.sel{background:rgba(232,242,255,.8);border-color:#0066CC}
 </style>
 <style id="tema-google">
-/* ═══ TEMA "GOOGLE" (piloto visual) ═══
-   Solo cambia colores, bordes y sombras. No toca tamaños, posiciones ni el JS.
-   Para volver al diseño anterior (glass): afrovial.html?tema=glass
-   Bordes: gris fino por defecto; para bordes negros cambia --g-borde a #202124. */
+/* ═══ TEMA "GOOGLE" + MODO OSCURO ═══
+   Solo cambia colores, bordes y sombras. No toca tamaños, posiciones ni el JS de cálculo.
+   Diseño anterior (glass): afrovial.html?tema=glass   |   Abrir en oscuro: afrovial.html?tema=oscuro
+   Bordes: gris fino por defecto; para bordes negros cambia --g-borde (modo claro) a #202124.
+   El lienzo del Editor se mantiene claro en ambos modos (es el "papel" donde se dibuja el flujograma). */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
 :root{
-  --g-azul:#1a73e8; --g-azul-osc:#1765cc; --g-azul-claro:#e8f0fe; --g-azul-texto:#1967d2;
-  --g-texto:#202124; --g-texto-2:#5f6368;
+  --g-azul:#1a73e8; --g-azul-osc:#1765cc; --g-azul-claro:#e8f0fe; --g-azul-claro-h:#d2e3fc; --g-azul-texto:#1967d2; --g-sobre-azul:#fff;
+  --g-texto:#202124; --g-texto-2:#5f6368; --g-texto-btn:#3c4043;
   --g-borde:#dadce0;            /* ← pon #202124 para bordes negros */
-  --g-divisor:#e8eaed; --g-hover:#f1f3f4;
+  --g-borde-h:#c6c9ce; --g-divisor:#e8eaed; --g-hover:#f1f3f4;
+  --g-sup:#fff; --g-sup-2:#f8f9fa; --g-campo:#fff; --g-fondo:#f1f3f4;
+  --g-gris:#bdc1c6; --g-gris-h:#9aa0a6;
+  --g-ok-bg:#e6f4ea; --g-ok-texto:#188038;
   --g-sombra:0 1px 2px rgba(60,64,67,.30), 0 2px 6px 2px rgba(60,64,67,.15);
   --g-sombra-sm:0 1px 2px rgba(60,64,67,.30), 0 1px 3px 1px rgba(60,64,67,.15);
 
   --blue:var(--g-azul); --blue-dark:var(--g-azul-osc); --blue-lt:var(--g-azul-claro); --blue-mid:#4285f4;
   --text:var(--g-texto); --text-sec:var(--g-texto-2); --text-tert:#80868b;
-  --bg:#f8f9fa; --surface:#fff; --border:var(--g-borde); --border-lt:var(--g-divisor);
+  --bg:var(--g-sup-2); --surface:var(--g-sup); --border:var(--g-borde); --border-lt:var(--g-divisor);
   --green:#1e8e3e; --red:#d93025;
   --radius:8px; --radius-lg:12px;
   --font:"Roboto","Segoe UI",Arial,sans-serif;
   --shadow:var(--g-sombra-sm); --shadow-md:var(--g-sombra);
-  --glass-bg:#fff; --glass-bg-strong:#fff; --glass-bg-card:#fff; --glass-bg-soft:#fff;
+  --glass-bg:var(--g-sup); --glass-bg-strong:var(--g-sup); --glass-bg-card:var(--g-sup); --glass-bg-soft:var(--g-sup);
   --glass-border:var(--g-borde); --glass-border-soft:var(--g-borde);
   --glass-blur:none; --glass-blur-soft:none;
   --glass-shadow:var(--g-sombra); --glass-shadow-sm:0 1px 2px rgba(60,64,67,.20);
   --glass-highlight:none;
 }
+
+/* ── MODO OSCURO (paleta oscura de Google) ── */
+html[data-tema="oscuro"]{
+  color-scheme:dark;
+  --g-azul:#8ab4f8; --g-azul-osc:#aecbfa; --g-azul-claro:#394457; --g-azul-claro-h:#43516a; --g-azul-texto:#aecbfa; --g-sobre-azul:#202124;
+  --g-texto:#e8eaed; --g-texto-2:#9aa0a6; --g-texto-btn:#e8eaed;
+  --g-borde:#4d5156;
+  --g-borde-h:#6b7075; --g-divisor:#3c4043; --g-hover:#35363a;
+  --g-sup:#292a2d; --g-sup-2:#202124; --g-campo:#202124; --g-fondo:#202124;
+  --g-gris:#5f6368; --g-gris-h:#80868b;
+  --g-ok-bg:#1e3529; --g-ok-texto:#81c995;
+  --g-sombra:0 1px 2px rgba(0,0,0,.60), 0 2px 6px 2px rgba(0,0,0,.35);
+  --g-sombra-sm:0 1px 2px rgba(0,0,0,.60), 0 1px 3px 1px rgba(0,0,0,.35);
+  /* colores de los turnos y de la hora punta (fondos suaves y textos claros) */
+  --manana:rgba(253,214,99,.10); --manana-t:#fdd663;
+  --tarde:rgba(129,201,149,.12); --tarde-t:#81c995;
+  --noche:rgba(179,157,219,.14); --noche-t:#b39ddb;
+  --madru:rgba(138,180,248,.12); --madru-t:#8ab4f8;
+  --hp-bg:rgba(242,139,130,.14); --hp-text:#f28b82;
+}
+
 *,*::before,*::after{-webkit-backdrop-filter:none !important;backdrop-filter:none !important}
-body{background:#f1f3f4}
+body{background:var(--g-fondo)}
 body::before{display:none}
+button,input,select,textarea{font-family:inherit}
 
 /* Barra superior */
-.topbar{background:#fff;border:1px solid var(--g-borde);box-shadow:var(--g-sombra)}
+.topbar{background:var(--g-sup);border:1px solid var(--g-borde);box-shadow:var(--g-sombra)}
 .topbar::before{display:none}
 .topbar-divider{background:var(--g-borde)}
 .logo{font-weight:500;letter-spacing:0}
 .nav-tabs{background:var(--g-hover);border-color:transparent;box-shadow:none}
 .tab:hover{background:var(--g-divisor);color:var(--g-texto)}
 .tab.active{background:var(--g-azul-claro);color:var(--g-azul-texto);font-weight:500;box-shadow:none}
-.tab.active:hover{background:#d2e3fc}
+.tab.active:hover{background:var(--g-azul-claro-h)}
 
 /* Botones */
-.btn{background:#fff;border:1px solid var(--g-borde);box-shadow:none;color:#3c4043;font-weight:500}
-.btn:hover{background:var(--g-hover);border-color:#c6c9ce;transform:none;box-shadow:var(--g-sombra-sm)}
-.btn-blue{background:var(--g-azul);border-color:var(--g-azul);color:#fff;box-shadow:none}
+.btn{background:var(--g-sup);border:1px solid var(--g-borde);box-shadow:none;color:var(--g-texto-btn);font-weight:500}
+.btn:hover{background:var(--g-hover);border-color:var(--g-borde-h);transform:none;box-shadow:var(--g-sombra-sm)}
+.btn-blue{background:var(--g-azul);border-color:var(--g-azul);color:var(--g-sobre-azul);box-shadow:none}
 .btn-blue:hover{background:var(--g-azul-osc);border-color:var(--g-azul-osc);box-shadow:var(--g-sombra-sm)}
 
 /* Tarjetas y títulos (sin mayúsculas separadas) */
-.card,.hp-card,.export-card{background:#fff;border:1px solid var(--g-borde);box-shadow:none}
+.card,.hp-card,.export-card{background:var(--g-sup);border:1px solid var(--g-borde);box-shadow:none}
 .card-title{text-transform:none;letter-spacing:0;font-size:14px;font-weight:500;color:var(--g-texto)}
 .section-label{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:var(--g-texto-2)}
 .page-title{font-weight:500;letter-spacing:0}
-.divider,.toggle-wrap{border-color:var(--g-divisor)}
 .divider{background:var(--g-divisor)}
+.toggle-wrap{border-color:var(--g-divisor)}
 
 /* Campos */
-.field input,.field select,.field textarea,.ed-input{background:#fff;border:1px solid var(--g-borde)}
+.field input,.field select,.field textarea,.ed-input{background:var(--g-campo);border:1px solid var(--g-borde)}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--g-azul);box-shadow:0 0 0 1px var(--g-azul)}
-.toggle-slider{background:#bdc1c6}
+.toggle-slider{background:var(--g-gris)}
 .toggle input:checked + .toggle-slider{background:var(--g-azul)}
 
 /* Etiquetas */
 .tag-blue{background:var(--g-azul-claro);color:var(--g-azul-texto)}
-.tag-green{background:#e6f4ea;color:#188038}
+.tag-green{background:var(--g-ok-bg);color:var(--g-ok-texto)}
 .tag-gray{background:var(--g-hover)}
 
 /* Tablas (se mantienen los tintes por franja horaria) */
-.aforo-table th{background:#f8f9fa}
-.aforo-table th.th-veh{background:var(--g-azul)}
+.aforo-table th{background:var(--g-sup-2)}
+.aforo-table th.th-veh{background:#1a73e8;color:#fff}
 .aforo-table th.th-mov{background:var(--g-azul-claro);color:var(--g-azul-texto)}
-.aforo-table input[type=number]:hover{background:#fff}
+.aforo-table input[type=number]:hover{background:var(--g-campo)}
 
 /* Resultados y flujo */
-.hp-item{background:#fff;border:1px solid var(--g-borde)}
-.flujo-canvas-wrap{background:#fff;border:1px solid var(--g-borde);box-shadow:none}
+.hp-item{background:var(--g-sup);border:1px solid var(--g-borde)}
+.flujo-canvas-wrap{background:var(--g-sup);border:1px solid var(--g-borde);box-shadow:none}
 .mov-list-item{background:transparent}
 .mov-list-item:hover{background:var(--g-hover)}
 .mov-list-item.selected{background:var(--g-azul-claro);border-color:var(--g-azul)}
@@ -718,9 +744,9 @@ body::before{display:none}
 
 /* Ventana de sesión y avisos */
 #session-overlay{background:rgba(32,33,36,.6)}
-#session-modal{background:#fff;border:1px solid var(--g-borde);border-radius:12px;box-shadow:var(--g-sombra)}
+#session-modal{background:var(--g-sup);border:1px solid var(--g-borde);border-radius:12px;box-shadow:var(--g-sombra)}
 .sm-title{font-weight:500;letter-spacing:0}
-.sm-btn{background:#fff;border:1px solid var(--g-borde);border-radius:8px}
+.sm-btn{background:var(--g-sup);border:1px solid var(--g-borde);border-radius:8px}
 .sm-btn:hover{background:var(--g-azul-claro);border-color:var(--g-azul)}
 #notif{background:#323232}
 
@@ -732,12 +758,96 @@ body::before{display:none}
 .ed-input:focus{border-color:var(--g-azul)}
 
 /* Barras de desplazamiento */
-::-webkit-scrollbar-thumb{background:#bdc1c6}
-::-webkit-scrollbar-thumb:hover{background:#9aa0a6}
+::-webkit-scrollbar-thumb{background:var(--g-gris)}
+::-webkit-scrollbar-thumb:hover{background:var(--g-gris-h)}
+
+/* Botón de modo oscuro (existe en el HTML oculto; solo se muestra con este tema) */
+#btn-tema{display:inline-flex !important}
+
+/* ── Ajustes del modo oscuro para piezas con color propio ── */
+html[data-tema="oscuro"] .tag-manana{background:rgba(253,214,99,.14);color:#fdd663}
+html[data-tema="oscuro"] .tag-tarde{background:rgba(129,201,149,.14);color:#81c995}
+html[data-tema="oscuro"] .tag-noche{background:rgba(179,157,219,.16);color:#b39ddb}
+html[data-tema="oscuro"] .tag-madru{background:rgba(138,180,248,.16);color:#8ab4f8}
+/* tintes de las franjas horarias en la tabla de aforo */
+html[data-tema="oscuro"] .aforo-table tr.tr-manana td{background:rgba(253,214,99,.06)}
+html[data-tema="oscuro"] .aforo-table tr.tr-tarde td{background:rgba(129,201,149,.06)}
+html[data-tema="oscuro"] .aforo-table tr.tr-noche td{background:rgba(179,157,219,.08)}
+html[data-tema="oscuro"] .aforo-table tr.tr-madru td{background:rgba(138,180,248,.07)}
+html[data-tema="oscuro"] .aforo-table tr.tr-hp td{background:rgba(242,139,130,.16) !important}
+html[data-tema="oscuro"] .aforo-table tr.tr-hp td.td-hora{color:#f28b82 !important}
+/* editor: textos que estaban escritos en negro / gris oscuro */
+html[data-tema="oscuro"] .ed-tool,
+html[data-tema="oscuro"] .ed-tool:hover,
+html[data-tema="oscuro"] .ed-acc-btn,
+html[data-tema="oscuro"] .ed-mov-item,
+html[data-tema="oscuro"] .ed-input,
+html[data-tema="oscuro"] .ed-elem-item:hover,
+html[data-tema="oscuro"] .ed-elem-item.sel{color:var(--g-texto)}
+html[data-tema="oscuro"] .ed-prop-label,
+html[data-tema="oscuro"] .ed-elem-item{color:var(--g-texto-2)}
+html[data-tema="oscuro"] .ed-acc-btn.active{background:rgba(255,255,255,.08)}
+/* estilos escritos dentro del HTML/JS: textos oscuros, fondos claros y bordes grises → versiones para fondo oscuro */
+html[data-tema="oscuro"] [style*="color:#1D1D1F"]{color:var(--g-texto) !important}
+html[data-tema="oscuro"] [style*="color:#6E6E73"],
+html[data-tema="oscuro"] [style*="color:#636366"],
+html[data-tema="oscuro"] [style*="color:#555"],
+html[data-tema="oscuro"] [style*="color:#8E8E93"],
+html[data-tema="oscuro"] [style*="color:#AEAEB2"]{color:var(--g-texto-2) !important}
+html[data-tema="oscuro"] [style*="background:#F5F5F7"],
+html[data-tema="oscuro"] [style*="background:#FAFAFA"],
+html[data-tema="oscuro"] [style*="background:#F0F4F8"]{background:var(--g-sup-2) !important}
+html[data-tema="oscuro"] [style*="background:#FFFFFF"]{background:var(--g-sup) !important}
+html[data-tema="oscuro"] [style*="background:white"]{background:var(--g-sup) !important}
+html[data-tema="oscuro"] [style*="background:#F9F9FB"]{background:rgba(255,255,255,.04) !important}
+html[data-tema="oscuro"] [style*="background:#E8F8EC"]{background:rgba(129,201,149,.14) !important}
+html[data-tema="oscuro"] [style*="color:#1A5FA8"]{color:#8ab4f8 !important}
+html[data-tema="oscuro"] [style*="background:#E8F5E9"]{background:rgba(129,201,149,.14) !important}
+html[data-tema="oscuro"] [style*="background:#FFF8E1"]{background:rgba(253,214,99,.12) !important}
+html[data-tema="oscuro"] [style*="color:#8B6200"]{color:#fdd663 !important}
+html[data-tema="oscuro"] [style*="color:#C0392B"]{color:#f28b82 !important}
+/* tipologías (Privado / Público / Pesado): textos oscuros y filas pastel del resumen */
+html[data-tema="oscuro"] [style*="color:#1B4F8A"],
+html[data-tema="oscuro"] [style*="color: rgb(27, 79, 138)"]{color:#8ab4f8 !important}
+html[data-tema="oscuro"] [style*="color:#1E6B3C"],
+html[data-tema="oscuro"] [style*="color: rgb(30, 107, 60)"]{color:#81c995 !important}
+html[data-tema="oscuro"] [style*="color:#8B4500"],
+html[data-tema="oscuro"] [style*="color: rgb(139, 69, 0)"]{color:#ffb74d !important}
+html[data-tema="oscuro"] [style*="background:#EBF5FB"]{background:rgba(138,180,248,.14) !important}
+html[data-tema="oscuro"] [style*="background:#EAFAF1"]{background:rgba(129,201,149,.14) !important}
+html[data-tema="oscuro"] [style*="background:#FEF9E7"]{background:rgba(253,214,99,.12) !important}
+html[data-tema="oscuro"] [style*="#D2D2D7"]{border-color:var(--g-borde) !important}
+html[data-tema="oscuro"] [style*="#E5E5EA"]{border-color:var(--g-divisor) !important}
+/* gráficas (ApexCharts): textos, números sobre las barras, líneas y ventanitas */
+html[data-tema="oscuro"] .apexcharts-xaxis text,
+html[data-tema="oscuro"] .apexcharts-yaxis text,
+html[data-tema="oscuro"] .apexcharts-yaxis-title-text,
+html[data-tema="oscuro"] .apexcharts-xaxis-title-text{fill:var(--g-texto-2) !important}
+html[data-tema="oscuro"] .apexcharts-datalabel[fill="#1d1d1f" i],
+html[data-tema="oscuro"] .apexcharts-datalabels text[fill="#1d1d1f" i]{fill:var(--g-texto) !important}
+html[data-tema="oscuro"] .apexcharts-legend-text{color:var(--g-texto-2) !important}
+html[data-tema="oscuro"] .apexcharts-gridline,
+html[data-tema="oscuro"] .apexcharts-xaxis-tick,
+html[data-tema="oscuro"] .apexcharts-xaxis line{stroke:var(--g-divisor)}
+html[data-tema="oscuro"] svg [stroke="rgba(0,0,0,0.25)"]{stroke:rgba(255,255,255,.28)}
+html[data-tema="oscuro"] .apexcharts-tooltip{background:var(--g-sup) !important;border-color:var(--g-borde) !important;color:var(--g-texto) !important;box-shadow:var(--g-sombra) !important}
+html[data-tema="oscuro"] .apexcharts-tooltip-title{background:var(--g-hover) !important;border-bottom-color:var(--g-borde) !important;color:var(--g-texto) !important}
+html[data-tema="oscuro"] .apexcharts-xaxistooltip,
+html[data-tema="oscuro"] .apexcharts-yaxistooltip{background:var(--g-sup) !important;border-color:var(--g-borde) !important;color:var(--g-texto) !important}
+html[data-tema="oscuro"] .apexcharts-menu{background:var(--g-sup) !important;border-color:var(--g-borde) !important}
+html[data-tema="oscuro"] .apexcharts-menu-item:hover{background:var(--g-hover) !important}
+html[data-tema="oscuro"] .apexcharts-toolbar svg{fill:var(--g-texto-2)}
 </style>
 <script>
-/* ?tema=glass → quita el tema Google y vuelve al diseño anterior */
-if(new URLSearchParams(location.search).get('tema') === 'glass'){ var _tg = document.getElementById('tema-google'); if(_tg) _tg.remove(); }
+/* ?tema=glass → quita el tema Google y vuelve al diseño anterior.
+   Modo oscuro: botón luna/sol en la barra; se recuerda en el navegador (o afrovial.html?tema=oscuro). */
+(function(){
+  var q = new URLSearchParams(location.search).get('tema');
+  if(q === 'glass'){ var t = document.getElementById('tema-google'); if(t) t.remove(); return; }
+  var osc = (q === 'oscuro');
+  try{ if(!q && localStorage.getItem('urbancore-tema') === 'oscuro') osc = true; }catch(e){}
+  if(osc) document.documentElement.setAttribute('data-tema', 'oscuro');
+})();
 </script>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -768,6 +878,7 @@ if(new URLSearchParams(location.search).get('tema') === 'glass'){ var _tg = docu
     <div class="save-dot" id="save-dot"></div>
     <span class="save-label" id="save-label">Guardado</span>
     <button class="btn btn-blue" onclick="calcularHP()"><i class="fa-solid fa-bolt"></i> Calcular HP</button>
+    <button class="btn" id="btn-tema" style="display:none" title="Cambiar a modo oscuro"><i class="fa-solid fa-moon"></i></button>
   </div>
 </div>
 
@@ -4707,6 +4818,25 @@ function edLoadStorage(){
   }catch(e){}
 }
 
+</script>
+
+<script>
+/* Modo oscuro (solo con el tema Google): no toca ninguna función de AforoCore, solo un atributo del <html> */
+(function(){
+  var btn = document.getElementById('btn-tema');
+  if(!btn || new URLSearchParams(location.search).get('tema') === 'glass') return;
+  function aplicar(osc){
+    document.documentElement.setAttribute('data-tema', osc ? 'oscuro' : 'claro');
+    btn.innerHTML = '<i class="fa-solid ' + (osc ? 'fa-sun' : 'fa-moon') + '"></i>';
+    btn.title = osc ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+  }
+  btn.addEventListener('click', function(){
+    var osc = document.documentElement.getAttribute('data-tema') !== 'oscuro';
+    aplicar(osc);
+    try{ localStorage.setItem('urbancore-tema', osc ? 'oscuro' : 'claro'); }catch(e){}
+  });
+  aplicar(document.documentElement.getAttribute('data-tema') === 'oscuro');
+})();
 </script>
 </body>
 </html>

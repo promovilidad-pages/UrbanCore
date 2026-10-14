@@ -8,11 +8,16 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <link rel="stylesheet" href="estilos.css" />
 <script>
-/* Tema visual: por defecto el piloto "Google" (tema-google.css). Para ver el diseño anterior: index.html?tema=glass */
+/* Tema visual: por defecto el piloto "Google" (tema-google.css). Para ver el diseño anterior: index.html?tema=glass
+   Modo oscuro: solo con el tema Google. Botón luna/sol en la barra; se recuerda en el navegador (o index.html?tema=oscuro). */
 (function(){
-  if(new URLSearchParams(location.search).get('tema') === 'glass') return;
+  var q = new URLSearchParams(location.search).get('tema');
+  if(q === 'glass') return;
   var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'tema-google.css';
   document.head.appendChild(l);
+  var osc = (q === 'oscuro');
+  try{ if(!q && localStorage.getItem('urbancore-tema') === 'oscuro') osc = true; }catch(e){}
+  if(osc) document.documentElement.setAttribute('data-tema', 'oscuro');
 })();
 </script>
 </head>
@@ -37,6 +42,7 @@
       <button class="btn" id="btn-export" disabled>Exportar ▾</button>
       <div class="export-menu" id="export-menu"></div>
     </div>
+    <button class="btn" id="btn-tema" style="display:none" title="Cambiar a modo oscuro"><i class="fa-solid fa-moon"></i></button>
   </div>
 </header>
 
@@ -117,5 +123,30 @@
 <script src="modulos/cobertura.js"></script>
 
 <script src="nucleo/arranque.js"></script>
+
+<script>
+/* Modo oscuro (solo con el tema Google): no toca ninguna función del visor, solo un atributo del <html> */
+(function(){
+  var btn = document.getElementById('btn-tema');
+  var q = new URLSearchParams(location.search).get('tema');
+  if(!btn || q === 'glass') return;
+  var KEY = 'urbancore-tema';
+  function activo(id){ var b = document.getElementById(id); return !!(b && b.classList.contains('active')); }
+  function clic(id){ var b = document.getElementById(id); if(b) b.click(); }
+  function aplicar(osc, cambiarMapa){
+    document.documentElement.setAttribute('data-tema', osc ? 'oscuro' : 'claro');
+    btn.innerHTML = '<i class="fa-solid ' + (osc ? 'fa-sun' : 'fa-moon') + '"></i>';
+    btn.title = osc ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+    /* el fondo de mapa acompaña solo si estaba en Claro/Oscuro; Satélite y OSM no se tocan */
+    if(cambiarMapa){ if(osc && activo('bm-claro')) clic('bm-oscuro'); else if(!osc && activo('bm-oscuro')) clic('bm-claro'); }
+  }
+  btn.addEventListener('click', function(){
+    var osc = document.documentElement.getAttribute('data-tema') !== 'oscuro';
+    aplicar(osc, true);
+    try{ localStorage.setItem(KEY, osc ? 'oscuro' : 'claro'); }catch(e){}
+  });
+  aplicar(document.documentElement.getAttribute('data-tema') === 'oscuro', true);
+})();
+</script>
 </body>
 </html>
